@@ -33,7 +33,7 @@ def client() -> OpenAI:
 
 @pytest.fixture
 def registry() -> ToolRegistry:
-    """Create a tool registry."""
+    """Create a tool _registry."""
     registry = ToolRegistry()
     registry.register_tool(get_weather)
     registry.register_tool(send_email)

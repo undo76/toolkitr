@@ -41,7 +41,7 @@ Here's a simple example of how to use Minitools:
 from typing import Annotated
 from minitools import ToolRegistry
 
-# Create a new registry
+# Create a new _registry
 registry = ToolRegistry()
 
 # Register a function as a tool

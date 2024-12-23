@@ -7,7 +7,7 @@ from typing import (
     Annotated,
     Optional,
     Literal,
-    TypedDict,
+    TypedDict, Iterator,
 )
 from enum import Enum
 from dataclasses import dataclass
@@ -56,7 +56,16 @@ class ToolInfo:
 
 class ToolRegistry:
     def __init__(self):
-        self.registry: dict[str, ToolInfo] = {}
+        self._registry: dict[str, ToolInfo] = {}
+
+    def __getitem__(self, tool_name: str):
+        return self._registry[tool_name]
+
+    def __iter__(self) -> Iterator[ToolInfo]:
+        return iter(self._registry.values())
+
+    def __len__(self) -> int:
+        return len(self._registry)
 
     def register_tool(
         self,
@@ -96,10 +105,10 @@ class ToolRegistry:
             is_async=is_async,
         )
 
-        self.registry[tool_name] = tool_info
+        self._registry[tool_name] = tool_info
 
     def call_tool(self, tool_name: str, json_args: dict):
-        tool_info = self.registry[tool_name]
+        tool_info = self._registry[tool_name]
         func = tool_info.function
 
         sig = inspect.signature(func)
@@ -122,11 +131,11 @@ class ToolRegistry:
             return func(**py_kwargs)
 
     def definition(self, tool_name: str) -> dict[str, Any]:
-        tool_info = self.registry[tool_name]
+        tool_info = self._registry[tool_name]
         return tool_info.definition
 
     def definitions(self) -> list[dict[str, Any]]:
-        return [tool_info.definition for tool_info in self.registry.values()]
+        return [tool_info.definition for tool_info in self._registry.values()]
 
     def tool(self, *, name: str = None, description: str = None):
         def decorator(func: Callable):
