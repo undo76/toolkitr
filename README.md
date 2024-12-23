@@ -1,10 +1,11 @@
 # Minitools
 
-A lightweight Python library for creating and managing function tools that integrate seamlessly with OpenAI's function calling API. Minitools provides type-safe function registration and automatic JSON Schema generation from Python type hints.
+A lightweight Python library for creating and managing function tools that can integrate with any LLM provider supporting function calling. Minitools provides type-safe function registration and automatic JSON Schema generation from Python type hints.
 
 ## Features
 
-- Simple tool registration system with function decorators
+- LLM-agnostic function tool registry system
+- Simple tool registration with function decorators
 - Automatic JSON Schema generation from Python type annotations
 - Support for complex Python types including:
   - Enums
@@ -15,7 +16,7 @@ A lightweight Python library for creating and managing function tools that integ
   - Optional and Union types
   - Literal types
   - Annotated types with descriptions
-- Full integration with OpenAI's function calling API
+- Ready-to-use integration examples for popular LLM providers
 - Type-safe conversion between JSON and Python objects
 
 ## Installation
@@ -49,7 +50,18 @@ def get_weather(location: Annotated[str, "The location to get weather for"]) -> 
     """Get the weather for a location."""
     return f"The weather in {location} is sunny."
 
-# Use with OpenAI
+# Get tool definitions - can be used with any LLM provider
+tool_definitions = registry.definitions()
+
+# Execute a tool call
+result = registry.call_tool("get_weather", {"location": "London"})
+```
+
+### Integration Examples
+
+#### OpenAI Integration
+
+```python
 from openai import OpenAI
 
 client = OpenAI()
@@ -61,7 +73,7 @@ messages = [
 response = client.chat.completions.create(
     messages=messages,
     model="gpt-4",
-    tools=registry.definitions()
+    tools=registry.definitions()  # Tool definitions work with OpenAI
 )
 
 # Handle tool calls
@@ -82,9 +94,6 @@ Minitools supports a wide range of Python types that are automatically converted
 from enum import Enum
 from dataclasses import dataclass
 from typing import Optional, Literal
-from minitools import ToolRegistry
-
-registry = ToolRegistry()
 
 class Priority(Enum):
     LOW = "low"
@@ -106,30 +115,82 @@ def create_task(
     return f"Created task for {user.name} with {priority.value} priority"
 ```
 
-### Type Descriptions
+### Function and Parameter Descriptions
 
-Use `Annotated` to add descriptions to your parameters:
+Minitools supports multiple ways to specify descriptions for your functions and parameters:
+
+#### Using Docstrings
+
+Function descriptions can be automatically extracted from docstrings:
 
 ```python
-from typing import Annotated
-from minitools import ToolRegistry
+@registry.tool()
+def send_email(recipient: str, subject: str, body: str) -> str:
+    """Send an email to a recipient.
+    
+    This function connects to the email server and delivers the message.
+    """
+    return f"Email sent to {recipient}"
+```
 
-registry = ToolRegistry()
+For complex types like dataclasses and TypedDicts, their docstrings are also used:
 
+```python
+@dataclass
+class EmailConfig:
+    """Configuration for email sending.
+    
+    Contains all necessary settings for SMTP connection and delivery.
+    """
+    host: str
+    port: int
+    use_tls: bool
+
+class MessageOptions(TypedDict):
+    """Options for customizing message delivery."""
+    priority: str
+    retry_count: int
+```
+
+#### Using Annotations
+
+Parameter descriptions can be specified using `Annotated`. These will override any docstring descriptions:
+
+```python
 @registry.tool()
 def send_email(
     recipient: Annotated[str, "Email address of the recipient"],
     subject: Annotated[str, "Email subject line"],
-    body: Annotated[str, "Email body content"]
+    body: Annotated[str, "Email body content"],
+    config: Annotated[EmailConfig, "Email server configuration"]
 ) -> str:
     """Send an email to a recipient."""
     return f"Email sent to {recipient}"
 ```
 
+#### Mixing Approaches
+
+You can combine both approaches, using docstrings for general descriptions and annotations for specific parameter details:
+
+```python
+@registry.tool()
+def create_user(
+    name: Annotated[str, "Full name of the user"],
+    role: str,
+    settings: UserSettings
+) -> User:
+    """Create a new user in the system.
+    
+    This function validates the input, creates the user record,
+    and initializes their default settings.
+    """
+    return User(name=name, role=role, settings=settings)
+```
+
 ## Requirements
 
 - Python 3.11 or higher
-- OpenAI Python package (for integration with OpenAI's API)
+- Optional dependencies for specific LLM integrations (e.g., `openai` package for OpenAI integration)
 
 ## Development
 
@@ -148,8 +209,4 @@ To set up the development environment:
 
 ## License
 
-[License information not provided in source files]
-
-## Contributing
-
-[Contribution guidelines not provided in source files]
+Pending

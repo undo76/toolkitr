@@ -1,9 +1,10 @@
 [tool.poetry]
 name = "minitools"
 version = "0.1.0"
-description = ""
+description = "Tool calling made easy"
 authors = ["Manolo Santos <manolo.santos@gmail.com>"]
 readme = "README.md"
+packages = [{ include = "minitools", from = "src" }]
 
 [tool.poetry.dependencies]
 python = "^3.11"
