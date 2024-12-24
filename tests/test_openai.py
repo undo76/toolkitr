@@ -32,9 +32,13 @@ def client() -> OpenAI:
     return OpenAI()
 
 
-@pytest.fixture(params=[True, False])
+@pytest.fixture(params=[True, False], ids=["strict", "non-strict"])
 def registry(request) -> ToolRegistry:
-    """Create a tool registry with strict mode parameterized."""
+    """Create a tool registry with strict mode parameterized.
+    
+    - strict=True: Enforces strict schema validation
+    - strict=False: Allows additional properties in JSON schema
+    """
     registry = ToolRegistry()
     strict = request.param
     registry.register_tool(get_weather, strict=strict)
@@ -53,7 +57,12 @@ def test_openai(client: OpenAI) -> None:
 
 
 def test_tool(client: OpenAI) -> None:
-    """Test call to a registered tool with both strict and non-strict modes."""
+    """Test call to a registered tool with both strict and non-strict modes.
+    
+    Tests both:
+    - strict=True: Validates exact parameter matching
+    - strict=False: Allows additional parameters in tool calls
+    """
     messages = [
         {"role": "user", "content": "What is the weather in London?"},
     ]
@@ -75,7 +84,12 @@ def test_tool(client: OpenAI) -> None:
 
 
 def test_multiple_tools(client: OpenAI, registry: ToolRegistry) -> None:
-    """Test call to multiple registered tools."""
+    """Test call to multiple registered tools.
+    
+    Uses parameterized registry to test:
+    - strict=True: Enforces exact parameter schemas
+    - strict=False: More lenient parameter validation
+    """
     messages = [
         {"role": "user", "content": "What is the weather in London and Paris?"},
     ]
@@ -100,7 +114,12 @@ def test_multiple_tools(client: OpenAI, registry: ToolRegistry) -> None:
 
 
 def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
-    """Test call to tools in sequence."""
+    """Test call to tools in sequence.
+    
+    Tests chained tool calls with:
+    - strict=True: Strict schema validation for each tool
+    - strict=False: Allows additional parameters in each call
+    """
     messages = [
         {
             "role": "user",
