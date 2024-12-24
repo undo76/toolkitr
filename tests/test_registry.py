@@ -33,14 +33,14 @@ def test_call_tool():
     """Test calling a tool."""
     registry = ToolRegistry()
     registry.register_tool(lambda x: x, name="echo", description="Echoes the input.")
-    result = registry.call_tool("echo", {"x": "test"})
+    result = registry.call("echo", {"x": "test"})
     assert result == "test"
 
     with pytest.raises(KeyError):
-        registry.call_tool("unknown", {})
+        registry.call("unknown", {})
 
     with pytest.raises(TypeError):
-        registry.call_tool("echo", {})
+        registry.call("echo", {})
 
 
 def test_method():
@@ -69,5 +69,5 @@ def test_method():
         "properties": {"x": { "type": "string"}},
         "required": ["x"],
     }
-    result = registry.call_tool("echo", {"x": "test"})
+    result = registry.call("echo", {"x": "test"})
     assert result == "Hi test"
