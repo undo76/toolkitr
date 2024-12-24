@@ -166,9 +166,9 @@ def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
     messages.append(message)
 
     for tool_call in message.tool_calls:
-        tool_message = registry.tool_call(tool_call.to_dict())
+        tool_response = registry.tool_call(tool_call.to_dict())
         print(tool_message)
-        messages.append(tool_message)
+        messages.append(tool_response)
 
     response = client.chat.completions.create(
         messages=messages, model="gpt-4o-mini", tools=registry.definitions()

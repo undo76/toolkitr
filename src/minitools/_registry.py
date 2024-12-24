@@ -65,8 +65,8 @@ class ToolCall(TypedDict):
     id: str
     function: ToolCallFunction
 
-class ToolCallResult(TypedDict):
-    """Result of a tool call execution."""
+class ToolCallMessage(TypedDict):
+    """Message returned from a tool call execution."""
     role: Literal["tool"]
     tool_call_id: str
     name: str
@@ -158,11 +158,11 @@ class ToolRegistry:
         else:
             return func(**py_kwargs)
 
-    def tool_call(self, tool_call: ToolCall) -> ToolCallResult:
+    def tool_call(self, tool_call: ToolCall) -> ToolCallMessage:
         function = tool_call["function"]
         arguments = json.loads(function["arguments"])
         call_result = self.call(function["name"], **arguments)
-        return ToolCallResult(
+        return ToolCallMessage(
             role="tool",
             tool_call_id=tool_call["id"],
             name=function["name"],
