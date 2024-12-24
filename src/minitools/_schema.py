@@ -129,8 +129,8 @@ def python_type_to_json_schema(py_type: Any, strict: bool = False) -> Dict[str, 
             schema["items"] = item_schema
         else:
             # fixed-length tuple
-            prefix_items = [python_type_to_json_schema(a, strict=strict) for a in args_]
-            schema["items"] = prefix_items             # Use oneOf AI!
+            schema["prefixItems"] = [python_type_to_json_schema(a, strict=strict) for a in args_]
+            schema["items"] = False  # Prevent additional items
         return schema
 
     # Dicts (Dict[str, T])
