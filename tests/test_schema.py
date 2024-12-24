@@ -75,7 +75,9 @@ def test_optional():
 
 def test_optional_literal():
     schema = python_type_to_json_schema(Optional[Literal["a", "b"]])
-    assert schema == {"oneOf": [{"type": "string", "enum": ["a", "b"]}, {"type": "null"}]}
+    assert schema == {
+        "oneOf": [{"type": "string", "enum": ["a", "b"]}, {"type": "null"}]
+    }
 
     # Test conversion
     assert json_to_python(None, Optional[Literal["a", "b"]]) is None
@@ -85,7 +87,9 @@ def test_optional_literal():
 
 def test_optional_multiple():
     schema = python_type_to_json_schema(str | int | None)
-    assert schema == {"oneOf": [{"type": "string"}, {"type": "integer"}, {"type": "null"}]}
+    assert schema == {
+        "oneOf": [{"type": "string"}, {"type": "integer"}, {"type": "null"}]
+    }
 
     # Test conversion
     assert json_to_python(None, Optional[Union[str, int]]) is None
