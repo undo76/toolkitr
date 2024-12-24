@@ -96,7 +96,6 @@ def python_type_to_json_schema(py_type: Any, strict: bool = False) -> Dict[str, 
         # Optional[T]
         if len(args) == 2 and NoneType in args:
             non_none_type = args[0] if args[1] is NoneType else args[1]
-            sub_schema = python_type_to_json_schema(non_none_type)
             sub_schema = python_type_to_json_schema(non_none_type, strict=strict)
             schema["oneOf"] = [sub_schema, {"type": "null"}]
             if description:
