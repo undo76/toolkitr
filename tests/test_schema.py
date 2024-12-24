@@ -109,9 +109,10 @@ def test_tuple():
     schema = python_type_to_json_schema(Tuple[int, str])
     assert schema == {
         "type": "array",
-        "items": [{"type": "integer"}, {"type": "string"}],
-        "minItems": 2,
+        "items": False,
+        "prefixItems": [{"type": "integer"}, {"type": "string"}],
         "maxItems": 2,
+        "minItems": 2,
     }
 
     # Test conversion
@@ -211,7 +212,8 @@ def test_all():
                 {"type": "array", "items": {"type": "integer"}},
                 {
                     "type": "array",
-                    "items": [{"type": "integer"}, {"type": "integer"}],
+                    "prefixItems": [{"type": "integer"}, {"type": "integer"}],
+                    "items": False,
                     "minItems": 2,
                     "maxItems": 2,
                 },
