@@ -43,6 +43,28 @@ def test_call_tool():
         registry.call("echo", {})
 
 
+def test_iteration():
+    """Test iteration and container operations on registry."""
+    registry = ToolRegistry()
+    
+    # Test empty registry
+    assert len(registry) == 0
+    assert list(registry) == []
+    assert "echo" not in registry
+    
+    # Add a tool
+    registry.register_tool(lambda x: x, name="echo", description="Echo tool")
+    
+    # Test non-empty registry
+    assert len(registry) == 1
+    tools = list(registry)
+    assert len(tools) == 1
+    assert tools[0].name == "echo"
+    assert tools[0].description == "Echo tool"
+    assert "echo" in registry
+    assert "unknown" not in registry
+
+
 def test_method():
     """Test registering a method."""
 
