@@ -1,6 +1,7 @@
 import asyncio
 import json
-from typing import Annotated, Literal, TypedDict, NamedTuple, cast
+from pyexpat.errors import messages
+from typing import Annotated, Literal, TypedDict, NamedTuple, cast, Any
 from enum import Enum
 from dataclasses import dataclass
 
@@ -41,7 +42,9 @@ def get_weather(location: Annotated[str, "The location to get the weather for"])
     return f"The weather in {location} is sunny."
 
 
-async def aget_weather(location: Annotated[str, "The location to get the weather for"]) -> str:
+async def aget_weather(
+    location: Annotated[str, "The location to get the weather for"]
+) -> str:
     """Get the weather for a location asynchronously."""
     return f"The weather in {location} is sunny."
 
@@ -74,8 +77,6 @@ def create_complex_task(
         f"coordinates {coordinates}, status: {status}, due: {options['due_date']}, "
         f"tags: {', '.join(options['tags'])}"
     )
-
-
 
 
 @pytest.fixture
@@ -203,6 +204,34 @@ async def test_async_tool(client: OpenAI) -> None:
     assert args["location"] == "Tokyo"
     call_result = await registry.acall(function_name, **args)
     assert "The weather in Tokyo is sunny." in call_result
+
+
+@pytest.mark.asyncio
+async def test_async_multiple_tools(client: OpenAI) -> None:
+    """Test async call to tools in parallel."""
+    registry = ToolRegistry()
+    registry.register_tool(aget_weather)
+    messages = [{"role": "user", "content": "What is the weather in Tokyo and Kyoto?"}]
+    response = client.chat.completions.create(
+        messages=messages, model="gpt-4o-mini", tools=registry.definitions()
+    )
+    messages.append(response.choices[0].message)
+    tool_calls = response.choices[0].message.tool_calls
+    assert len(tool_calls) == 2
+    messages += await asyncio.gather(
+        *(
+            registry.atool_call(cast(ToolCallDict, tool_call.to_dict()))
+            for tool_call in tool_calls
+        )
+    )
+    assert len(messages) == 4
+    response = client.chat.completions.create(
+        messages=messages, model="gpt-4o-mini", tools=registry.definitions()
+    )
+    content = response.choices[0].message.content
+    assert "Tokyo" in content
+    assert "Kyoto" in content
+    assert "sunny" in content
 
 
 def test_complex_types(client: OpenAI, registry: ToolRegistry) -> None:

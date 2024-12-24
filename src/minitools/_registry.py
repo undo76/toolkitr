@@ -7,7 +7,7 @@ from typing import (
     Optional,
     Literal,
     TypedDict,
-    Iterator,
+    Iterator, Coroutine,
 )
 from dataclasses import dataclass
 
@@ -165,23 +165,23 @@ class ToolRegistry:
         function = tool_call["function"]
         arguments = json.loads(function["arguments"])
         call_result = self.call(function["name"], **arguments)
-        return ToolCallMessageDict(
-            role="tool",
-            tool_call_id=tool_call["id"],
-            name=function["name"],
-            content=json.dumps(call_result),
-        )
+        return {
+            "role": "tool",
+            "tool_call_id": tool_call["id"],
+            "name": function["name"],
+            "content": json.dumps(call_result),
+        }
 
     async def atool_call(self, tool_call: ToolCallDict) -> ToolCallMessageDict:
         function = tool_call["function"]
         arguments = json.loads(function["arguments"])
         call_result = await self.acall(function["name"], **arguments)
-        return ToolCallMessageDict(
-            role="tool",
-            tool_call_id=tool_call["id"],
-            name=function["name"],
-            content=json.dumps(call_result),
-        )
+        return {
+            "role": "tool",
+            "tool_call_id": tool_call["id"],
+            "name": function["name"],
+            "content": json.dumps(call_result),
+        }
 
     def definitions(self) -> list[dict[str, Any]]:
         return [tool_info.definition for tool_info in self._registry.values()]
