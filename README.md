@@ -58,8 +58,18 @@ def get_weather(location: Annotated[str, "The location to get weather for"]) -> 
 # Get tool definitions - can be used with any LLM provider
 tool_definitions = registry.definitions()
 
-# Execute a tool call
-result = registry.call("get_weather", **{"location": "London"})
+# Execute a tool call directly
+result = registry.call("get_weather", location="London")
+
+# Or handle OpenAI tool calls
+result = registry.tool_call({
+    "id": "call_123",
+    "type": "function",
+    "function": {
+        "name": "get_weather",
+        "arguments": '{"location": "London"}'
+    }
+})
 ```
 
 ### Integration Examples
@@ -82,11 +92,10 @@ response = client.chat.completions.create(
 )
 
 # Handle tool calls
-tool_calls = response.choices[0].message.tool_calls
-for tool_call in tool_calls:
-    function_name = tool_call.function.name
-    args = json.loads(tool_call.function.arguments)
-    result = registry.call(function_name, **args)
+message = response.choices[0].message
+for tool_call in message.tool_calls:
+    tool_response = registry.tool_call(tool_call.to_dict())
+    messages.append(tool_response)  # Add tool response to conversation
 ```
 
 ## Limitations
