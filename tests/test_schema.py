@@ -73,6 +73,26 @@ def test_optional():
     assert json_to_python("test", Optional[str]) == "test"
 
 
+def test_optional_literal():
+    schema = python_type_to_json_schema(Optional[Literal["a", "b"]])
+    assert schema == {"oneOf": [{"type": "string", "enum": ["a", "b"]}, {"type": "null"}]}
+
+    # Test conversion
+    assert json_to_python(None, Optional[Literal["a", "b"]]) is None
+    assert json_to_python("a", Optional[Literal["a", "b"]]) == "a"
+    assert json_to_python("b", Optional[Literal["a", "b"]]) == "b"
+
+
+def test_optional_multiple():
+    schema = python_type_to_json_schema(str | int | None)
+    assert schema == {"oneOf": [{"type": "string"}, {"type": "integer"}, {"type": "null"}]}
+
+    # Test conversion
+    assert json_to_python(None, Optional[Union[str, int]]) is None
+    assert json_to_python("test", Optional[Union[str, int]]) == "test"
+    assert json_to_python(42, Optional[Union[str, int]]) == 42
+
+
 def test_list():
     schema = python_type_to_json_schema(List[int])
     assert schema == {"type": "array", "items": {"type": "integer"}}
@@ -155,3 +175,56 @@ def test_any():
     assert json_to_python(42, Any) == 42
     assert json_to_python("test", Any) == "test"
 
+
+def test_union():
+    schema = python_type_to_json_schema(Union[str, int])
+    assert schema == {"oneOf": [{"type": "string"}, {"type": "integer"}]}
+
+    # Test conversion
+    assert json_to_python("test", Union[str, int]) == "test"
+    assert json_to_python(42, Union[str, int]) == 42
+
+
+def test_union_optional():
+    schema = python_type_to_json_schema(Union[str, None])
+    assert schema == {"oneOf": [{"type": "string"}, {"type": "null"}]}
+
+    # Test conversion
+    assert json_to_python("test", str | None) == "test"
+    assert json_to_python(None, Union[str, None]) is None
+
+
+def test_all():
+    """Test a combination of types."""
+    schema = python_type_to_json_schema(
+        Dict[str, Union[str, List[int], Tuple[int, int], Optional[Color]]]
+    )
+    assert schema == {
+        "type": "object",
+        "additionalProperties": {
+            "oneOf": [
+                {"type": "string"},
+                {"type": "array", "items": {"type": "integer"}},
+                {
+                    "type": "array",
+                    "items": [{"type": "integer"}, {"type": "integer"}],
+                    "minItems": 2,
+                    "maxItems": 2,
+                },
+                {"type": "string", "enum": ["red", "green"]},
+                {"type": "null"},
+            ]
+        },
+    }
+
+    # Test conversion
+    data = {
+        "name": "Alice",
+        "numbers": [1, 2, 3],
+        "coordinates": [10, 20],
+        "color": "green",
+    }
+    result = json_to_python(
+        data, Dict[str, Union[str, List[int], Tuple[int, int], Optional[Color]]]
+    )
+    assert result == data

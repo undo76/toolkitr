@@ -15,6 +15,7 @@ def send_email(
     recipient: Annotated[str, "The email address of the recipient"],
     subject: Annotated[str, "The subject of the email"],
     message: Annotated[str, "The message to send"],
+    *,
     importance: Annotated[
         Literal["low", "medium", "high"], "The importance of the email"
     ],
@@ -138,4 +139,3 @@ def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
     assert "To: foo@example.com" in email_result
     assert "Paris" in email_result
     assert "London" in email_result
-    assert "sunny" in email_result

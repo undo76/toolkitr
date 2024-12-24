@@ -1,6 +1,7 @@
 import inspect
 from dataclasses import is_dataclass, fields, MISSING
 from enum import Enum
+from types import UnionType
 from typing import (
     Any,
     Dict,
@@ -17,15 +18,15 @@ from typing import (
     cast,
 )
 
+NoneType = type(None)
 
 type_map = {
     str: "string",
     int: "integer",
     float: "number",
     bool: "boolean",
+    NoneType: "null",
 }
-
-NoneType = type(None)
 
 
 def is_named_tuple_type(t: Any) -> bool:
@@ -90,7 +91,7 @@ def python_type_to_json_schema(py_type: Any) -> Dict[str, Any]:
         return schema
 
     # Union (including Optional)
-    if origin is Union:
+    if origin is Union or isinstance(py_type, UnionType):
         args = get_args(py_type)
         # Optional[T]
         if len(args) == 2 and NoneType in args:
@@ -232,7 +233,7 @@ def json_to_python(value: Any, py_type: Any) -> Any:
     if isinstance(py_type, type) and issubclass(py_type, Enum):
         return py_type(value)
 
-    if origin is Union:
+    if origin is Union or isinstance(py_type, UnionType):
         args = get_args(py_type)
         if len(args) == 2 and NoneType in args:
             if value is None:
