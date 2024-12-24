@@ -1,5 +1,5 @@
 import json
-from typing import Annotated, Any, Literal, Tuple, TypedDict
+from typing import Annotated, Any, Literal, Tuple, TypedDict, NamedTuple
 from enum import Enum
 from dataclasses import dataclass
 
@@ -133,10 +133,15 @@ def test_multiple_tools(client: OpenAI, registry: ToolRegistry) -> None:
     assert "The weather in Paris is sunny." in call_result
 
 
+class Coordinates(NamedTuple):
+    """A pair of coordinates."""
+    latitude: float
+    longitude: float
+
 def create_complex_task(
     user: UserInfo,
     priority: Priority,
-    coordinates: Tuple[float, float],
+    coordinates: Coordinates,
     status: Literal["pending", "in_progress", "done"],
     options: TaskOptions,
 ) -> str:
@@ -226,7 +231,7 @@ def test_complex_types(client: OpenAI, registry: ToolRegistry) -> None:
     # Verify complex type handling
     assert args["user"] == {"name": "John", "age": 30}
     assert args["priority"] == "high"
-    assert args["coordinates"] == [42.1, -71.1]
+    assert args["coordinates"] == {"latitude": 42.1, "longitude": -71.1}
     assert args["status"] == "in_progress"
     assert args["options"] == {
         "due_date": "tomorrow",
