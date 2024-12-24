@@ -119,12 +119,7 @@ def test_tool(client: OpenAI, registry: ToolRegistry) -> None:
 
 
 def test_multiple_tools(client: OpenAI, registry: ToolRegistry) -> None:
-    """Test call to multiple registered tools.
-
-    Uses parameterized registry to test:
-    - strict=True: Enforces exact parameter schemas
-    - strict=False: More lenient parameter validation
-    """
+    """Test call to multiple registered tools."""
     messages = [
         {"role": "user", "content": "What is the weather in London and Paris?"},
     ]
@@ -176,14 +171,10 @@ def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
 
     tool_calls = response.choices[0].message.tool_calls
     assert len(tool_calls) == 1
-    function_name = tool_calls[0].function.name
-    assert function_name == "send_email"
-    args = json.loads(tool_calls[0].function.arguments)
-    assert args["recipient"] == "foo@example.com"
-    email_result = registry.call(function_name, **args)
-    assert "To: foo@example.com" in email_result
-    assert "Paris" in email_result
-    assert "London" in email_result
+    email_result = registry.tool_call(tool_calls[0].to_dict())
+    assert "To: foo@example.com" in email_result["content"]
+    assert "Paris" in email_result["content"]
+    assert "London" in email_result["content"]
 
 
 def test_complex_types(client: OpenAI, registry: ToolRegistry) -> None:
