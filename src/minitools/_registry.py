@@ -91,7 +91,7 @@ class ToolRegistry:
             if param_name == "self":
                 continue
             py_type = type_hints.get(param_name, Any)
-            schema_prop = python_type_to_json_schema(py_type)
+            schema_prop = python_type_to_json_schema(py_type, strict=strict)
             properties[param_name] = schema_prop
             if param.default is inspect.Parameter.empty:
                 required_fields.append(param_name)
