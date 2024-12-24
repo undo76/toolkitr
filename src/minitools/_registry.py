@@ -65,6 +65,13 @@ class ToolCall(TypedDict):
     id: str
     function: ToolCallFunction
 
+class ToolCallResult(TypedDict):
+    """Result of a tool call execution."""
+    role: Literal["tool"]
+    tool_call_id: str
+    name: str
+    content: str
+
 
 class ToolRegistry:
     def __init__(self, strict: bool = False):
@@ -151,16 +158,16 @@ class ToolRegistry:
         else:
             return func(**py_kwargs)
 
-    def tool_call(self, tool_call: ToolCall) -> dict[str, Any]:
+    def tool_call(self, tool_call: ToolCall) -> ToolCallResult:
         function = tool_call["function"]
         arguments = json.loads(function["arguments"])
         call_result = self.call(function["name"], **arguments)
-        return {
-            "role": "tool",
-            "tool_call_id": tool_call["id"],
-            "name": function["name"],
-            "content": json.dumps(call_result),
-        }
+        return ToolCallResult(
+            role="tool",
+            tool_call_id=tool_call["id"],
+            name=function["name"],
+            content=json.dumps(call_result)
+        )
 
 
     def definition(self, tool_name: str) -> dict[str, Any]:
