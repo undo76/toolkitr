@@ -129,6 +129,7 @@ def python_type_to_json_schema(py_type: Any, strict: bool = False) -> Dict[str, 
             schema["items"] = item_schema
         else:
             # Fixed-length tuple using prefixItems
+            # AI warn the user that this doesn't work well and to use NamedTuples instead
             items = [python_type_to_json_schema(a, strict=strict) for a in args_]
             length = len(items)
             schema["prefixItems"] = items
