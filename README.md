@@ -46,6 +46,7 @@ registry = ToolRegistry(strict=True)  # Enforces exact parameter matching
 # Or with strict mode disabled (default)
 registry = ToolRegistry(strict=False)  # Allows additional parameters
 
+
 # Register a function as a tool
 # Register with specific strict mode
 @registry.tool(strict=True)  # Override registry's default strict mode
@@ -53,11 +54,12 @@ def get_weather(location: Annotated[str, "The location to get weather for"]) -> 
     """Get the weather for a location."""
     return f"The weather in {location} is sunny."
 
+
 # Get tool definitions - can be used with any LLM provider
 tool_definitions = registry.definitions()
 
 # Execute a tool call
-result = registry.call_tool("get_weather", {"location": "London"})
+result = registry.call("get_weather", **{"location": "London"})
 ```
 
 ### Integration Examples
@@ -84,7 +86,7 @@ tool_calls = response.choices[0].message.tool_calls
 for tool_call in tool_calls:
     function_name = tool_call.function.name
     args = json.loads(tool_call.function.arguments)
-    result = registry.call_tool(function_name, args)
+    result = registry.call(function_name, **args)
 ```
 
 ## Limitations
