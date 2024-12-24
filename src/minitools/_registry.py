@@ -55,6 +55,17 @@ class ToolInfo:
         )
 
 
+class ToolCallFunction(TypedDict):
+    name: str
+    arguments: str  # In JSON format
+
+
+class ToolCall(TypedDict):
+    type:  Literal["function"]
+    id: str
+    function: ToolCallFunction
+
+
 class ToolRegistry:
     def __init__(self, strict: bool = False):
         self._registry: dict[str, ToolInfo] = {}
@@ -117,8 +128,8 @@ class ToolRegistry:
 
         self._registry[tool_name] = tool_info
 
-    def call_tool(self, tool_name: str, json_args: dict):
-        tool_info = self._registry[tool_name]
+    def call(self, name: str, **kwargs: any) :
+        tool_info = self._registry[name]
         func = tool_info.function
 
         sig = inspect.signature(func)
@@ -129,8 +140,8 @@ class ToolRegistry:
             if param_name == "self":
                 continue
             py_type = type_hints.get(param_name, Any)
-            if param_name in json_args:
-                py_kwargs[param_name] = json_to_python(json_args[param_name], py_type)
+            if param_name in kwargs:
+                py_kwargs[param_name] = json_to_python(kwargs[param_name], py_type)
 
         if tool_info.is_async:
             async def async_call():
@@ -139,6 +150,18 @@ class ToolRegistry:
             return async_call()
         else:
             return func(**py_kwargs)
+
+    def tool_call(self, tool_call: ToolCall) -> dict[str, Any]:
+        function = tool_call["function"]
+        arguments = json.loads(function["arguments"])
+        call_result = self.call(function["name"], **arguments)
+        return {
+            "role": "tool",
+            "tool_call_id": tool_call["id"],
+            "name": function["name"],
+            "content": json.dumps(call_result),
+        }
+
 
     def definition(self, tool_name: str) -> dict[str, Any]:
         tool_info = self._registry[tool_name]
