@@ -28,6 +28,13 @@ class TaskOptions(TypedDict):
     tags: list[str]
 
 
+class Coordinates(NamedTuple):
+    """A pair of coordinates."""
+
+    latitude: float
+    longitude: float
+
+
 def get_weather(location: Annotated[str, "The location to get the weather for"]) -> str:
     """Get the weather for a location."""
     return f"The weather in {location} is sunny."
@@ -45,6 +52,21 @@ def send_email(
     """Send an email"""
     return "\n".join(
         [f"To: {recipient}", f"Subject: {subject}", "", f"{importance}: {message}"]
+    )
+
+
+def create_complex_task(
+    user: UserInfo,
+    priority: Priority,
+    coordinates: Coordinates,
+    status: Literal["pending", "in_progress", "done"],
+    options: TaskOptions,
+) -> str:
+    """Create a task with complex type parameters."""
+    return (
+        f"Created task for {user.name} (age {user.age}) with {priority.value} priority at "
+        f"coordinates {coordinates}, status: {status}, due: {options['due_date']}, "
+        f"tags: {', '.join(options['tags'])}"
     )
 
 
@@ -78,21 +100,12 @@ def test_openai(client: OpenAI) -> None:
     assert "Paris" in answer
 
 
-def test_tool(client: OpenAI) -> None:
-    """Test call to a registered tool with both strict and non-strict modes.
-
-    Tests both:
-    - strict=True: Validates exact parameter matching
-    - strict=False: Allows additional parameters in tool calls
-    """
+def test_tool(client: OpenAI, registry: ToolRegistry) -> None:
+    """Test call to a registered tool."""
     messages = [
         {"role": "user", "content": "What is the weather in London?"},
     ]
-
-    for strict in [True, False]:
-        registry = ToolRegistry()
-        registry.register_tool(get_weather, strict=strict)
-
+    registry.register_tool(get_weather)
     response = client.chat.completions.create(
         messages=messages, model="gpt-4o-mini", tools=registry.definitions()
     )
@@ -135,35 +148,8 @@ def test_multiple_tools(client: OpenAI, registry: ToolRegistry) -> None:
     assert "The weather in Paris is sunny." in call_result
 
 
-class Coordinates(NamedTuple):
-    """A pair of coordinates."""
-
-    latitude: float
-    longitude: float
-
-
-def create_complex_task(
-    user: UserInfo,
-    priority: Priority,
-    coordinates: Coordinates,
-    status: Literal["pending", "in_progress", "done"],
-    options: TaskOptions,
-) -> str:
-    """Create a task with complex type parameters."""
-    return (
-        f"Created task for {user.name} (age {user.age}) with {priority.value} priority at "
-        f"coordinates {coordinates}, status: {status}, due: {options['due_date']}, "
-        f"tags: {', '.join(options['tags'])}"
-    )
-
-
 def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
-    """Test call to tools in sequence.
-
-    Tests chained tool calls with:
-    - strict=True: Strict schema validation for each tool
-    - strict=False: Allows additional parameters in each call
-    """
+    """Test call to tools in sequence."""
     messages = [
         {
             "role": "user",
