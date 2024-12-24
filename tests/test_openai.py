@@ -1,9 +1,29 @@
 import json
-from typing import Annotated, Any, Literal
+from typing import Annotated, Any, Literal, Tuple, TypedDict
+from enum import Enum
+from dataclasses import dataclass
 
 import pytest
 from openai import OpenAI
 from minitools._registry import ToolRegistry
+
+
+class Priority(Enum):
+    LOW = "low"
+    HIGH = "high"
+
+
+@dataclass
+class UserInfo:
+    """User information for task creation."""
+    name: str
+    age: int
+
+
+class TaskOptions(TypedDict):
+    """Options for task creation."""
+    due_date: str
+    tags: list[str]
 
 
 def get_weather(location: Annotated[str, "The location to get the weather for"]) -> str:
@@ -113,6 +133,21 @@ def test_multiple_tools(client: OpenAI, registry: ToolRegistry) -> None:
     assert "The weather in Paris is sunny." in call_result
 
 
+def create_complex_task(
+    user: UserInfo,
+    priority: Priority,
+    coordinates: Tuple[float, float],
+    status: Literal["pending", "in_progress", "done"],
+    options: TaskOptions,
+) -> str:
+    """Create a task with complex type parameters."""
+    return (
+        f"Created task for {user.name} (age {user.age}) with {priority.value} priority at "
+        f"coordinates {coordinates}, status: {status}, due: {options['due_date']}, "
+        f"tags: {', '.join(options['tags'])}"
+    )
+
+
 def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
     """Test call to tools in sequence.
     
@@ -162,3 +197,49 @@ def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
     assert "To: foo@example.com" in email_result
     assert "Paris" in email_result
     assert "London" in email_result
+
+
+def test_complex_types(client: OpenAI) -> None:
+    """Test handling of complex Python types including tuples, literals, enums, dataclasses and TypedDict."""
+    registry = ToolRegistry()
+    registry.register_tool(create_complex_task)
+
+    messages = [
+        {
+            "role": "user",
+            "content": "Create a high priority task for John (age 30) at coordinates (42.1, -71.1), "
+            "mark it as in progress, due tomorrow with tags project and urgent",
+        },
+    ]
+
+    response = client.chat.completions.create(
+        messages=messages, model="gpt-4o-mini", tools=registry.definitions()
+    )
+
+    tool_calls = response.choices[0].message.tool_calls
+    assert len(tool_calls) == 1
+    
+    function_name = tool_calls[0].function.name
+    assert function_name == "create_complex_task"
+    
+    args = json.loads(tool_calls[0].function.arguments)
+    
+    # Verify complex type handling
+    assert args["user"] == {"name": "John", "age": 30}
+    assert args["priority"] == "high"
+    assert args["coordinates"] == [42.1, -71.1]
+    assert args["status"] == "in_progress"
+    assert args["options"] == {
+        "due_date": "tomorrow",
+        "tags": ["project", "urgent"]
+    }
+    
+    result = registry.call_tool(function_name, args)
+    assert "John" in result
+    assert "age 30" in result
+    assert "high priority" in result
+    assert "42.1, -71.1" in result
+    assert "in_progress" in result
+    assert "tomorrow" in result
+    assert "project" in result
+    assert "urgent" in result
