@@ -97,6 +97,7 @@ def python_type_to_json_schema(py_type: Any, strict: bool = False) -> Dict[str, 
         if len(args) == 2 and NoneType in args:
             non_none_type = args[0] if args[1] is NoneType else args[1]
             sub_schema = python_type_to_json_schema(non_none_type)
+            sub_schema = python_type_to_json_schema(non_none_type, strict=strict)
             schema["oneOf"] = [sub_schema, {"type": "null"}]
             if description:
                 schema["description"] = description
@@ -104,7 +105,7 @@ def python_type_to_json_schema(py_type: Any, strict: bool = False) -> Dict[str, 
         else:
             if description:
                 schema["description"] = description
-            schema["oneOf"] = [python_type_to_json_schema(a) for a in args]
+            schema["oneOf"] = [python_type_to_json_schema(a, strict=strict) for a in args]
             return schema
 
     # Lists (List[T])
@@ -113,7 +114,7 @@ def python_type_to_json_schema(py_type: Any, strict: bool = False) -> Dict[str, 
         if description:
             schema["description"] = description
         (item_type,) = get_args(py_type)
-        schema["items"] = python_type_to_json_schema(item_type)
+        schema["items"] = python_type_to_json_schema(item_type, strict=strict)
         return schema
 
     # Tuples
@@ -125,11 +126,11 @@ def python_type_to_json_schema(py_type: Any, strict: bool = False) -> Dict[str, 
         args_ = get_args(py_type)
         if len(args_) == 2 and args_[1] is Ellipsis:
             # variable-length tuple
-            item_schema = python_type_to_json_schema(args_[0])
+            item_schema = python_type_to_json_schema(args_[0], strict=strict)
             schema["items"] = item_schema
         else:
             # fixed-length tuple
-            items = [python_type_to_json_schema(a) for a in args_]
+            items = [python_type_to_json_schema(a, strict=strict) for a in args_]
             length = len(items)
             schema["items"] = items
             schema["minItems"] = length
