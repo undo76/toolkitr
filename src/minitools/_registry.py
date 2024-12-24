@@ -67,6 +67,9 @@ class ToolRegistry:
     def __len__(self) -> int:
         return len(self._registry)
 
+    def __contains__(self, item) -> bool:
+        return item in self._registry
+
     def register_tool(
         self,
         func: Callable,

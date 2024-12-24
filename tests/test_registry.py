@@ -1,3 +1,5 @@
+from dataclasses import dataclass
+
 import pytest
 
 from minitools._registry import ToolRegistry
@@ -15,7 +17,6 @@ def test_register_tool():
     """Test registering a tool."""
     registry = ToolRegistry()
     registry.register_tool(lambda x: x, name="echo", description="Echoes the input.")
-    assert "echo" in registry._registry
     assert len(registry) == 1
     assert list(registry)[0].name == "echo"
     assert list(registry)[0].description == "Echoes the input."
@@ -40,3 +41,33 @@ def test_call_tool():
 
     with pytest.raises(TypeError):
         registry.call_tool("echo", {})
+
+
+def test_method():
+    """Test registering a method."""
+
+    @dataclass
+    class Test:
+        name: str
+
+        def echo(self, x: str):
+            """Echoes the input."""
+            return " ".join([self.name, x])
+
+    registry = ToolRegistry()
+    registry.register_tool(
+        Test("Hi").echo
+    )
+    assert "echo" in registry
+    assert len(registry) == 1
+    assert list(registry)[0].name == "echo"
+    assert list(registry)[0].description == "Echoes the input."
+    assert list(registry)[0].function("test") == "Hi test"
+    assert list(registry)[0].is_async is False
+    assert list(registry)[0].parameters == {
+        "type": "object",
+        "properties": {"x": { "type": "string"}},
+        "required": ["x"],
+    }
+    result = registry.call_tool("echo", {"x": "test"})
+    assert result == "Hi test"
