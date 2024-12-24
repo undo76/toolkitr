@@ -40,6 +40,7 @@ class ToolInfo:
     parameters: dict[str, Any]  # JSON Schema for parameters
     function: Callable
     is_async: bool = False
+    strict: bool = False
 
     @property
     def definition(self) -> ToolDefinition:
@@ -49,7 +50,7 @@ class ToolInfo:
                 name=self.name,
                 description=self.description,
                 parameters=self.parameters,
-                strict=False,
+                strict=self.strict,
             )
         )
 
@@ -76,6 +77,7 @@ class ToolRegistry:
         *,
         name: Optional[str] = None,
         description: Optional[str] = None,
+        strict: bool = False,
     ):
         sig = inspect.signature(func)
         type_hints = get_type_hints(func, include_extras=True)
@@ -106,6 +108,7 @@ class ToolRegistry:
             parameters=parameters_schema,
             function=func,
             is_async=is_async,
+            strict=strict,
         )
 
         self._registry[tool_name] = tool_info
@@ -140,9 +143,9 @@ class ToolRegistry:
     def definitions(self) -> list[dict[str, Any]]:
         return [tool_info.definition for tool_info in self._registry.values()]
 
-    def tool(self, *, name: str = None, description: str = None):
+    def tool(self, *, name: str = None, description: str = None, strict: bool = False):
         def decorator(func: Callable):
-            self.register_tool(func, name=name, description=description)
+            self.register_tool(func, name=name, description=description, strict=strict)
             return func
 
         return decorator
