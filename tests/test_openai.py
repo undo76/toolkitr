@@ -36,8 +36,8 @@ def client() -> OpenAI:
 def registry() -> ToolRegistry:
     """Create a tool _registry."""
     registry = ToolRegistry()
-    registry.register_tool(get_weather)
-    registry.register_tool(send_email)
+    registry.register_tool(get_weather, strict=True)
+    registry.register_tool(send_email, strict=True)
     return registry
 
 
@@ -105,6 +105,7 @@ def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
         }
     ]
 
+    print(json.dumps(registry.definitions(), indent=2))
     response = client.chat.completions.create(
         messages=messages, model="gpt-4o-mini", tools=registry.definitions()
     )
