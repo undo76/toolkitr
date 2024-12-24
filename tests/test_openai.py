@@ -1,7 +1,7 @@
 import json
 from typing import Annotated, Any, Literal, Tuple, TypedDict, NamedTuple
 from enum import Enum
-from dataclasses import dataclass
+from dataclasses import dataclass, asdict
 
 import pytest
 from openai import OpenAI
@@ -114,7 +114,7 @@ def test_tool(client: OpenAI, registry: ToolRegistry) -> None:
     assert function_name == "get_weather"
     args = json.loads(tool_calls[0].function.arguments)
     assert args["location"] == "London"
-    call_result = registry.call_tool(function_name, args)
+    call_result = registry.call(function_name, **args)
     assert "The weather in London is sunny." in call_result
 
 
@@ -138,13 +138,13 @@ def test_multiple_tools(client: OpenAI, registry: ToolRegistry) -> None:
     assert function_name == "get_weather"
     args = json.loads(tool_calls[0].function.arguments)
     assert args["location"] == "London"
-    call_result = registry.call_tool(function_name, args)
+    call_result = registry.call(function_name, **args)
     assert "The weather in London is sunny." in call_result
     function_name = tool_calls[1].function.name
     assert function_name == "get_weather"
     args = json.loads(tool_calls[1].function.arguments)
     assert args["location"] == "Paris"
-    call_result = registry.call_tool(function_name, args)
+    call_result = registry.call(function_name, **args)
     assert "The weather in Paris is sunny." in call_result
 
 
@@ -157,7 +157,7 @@ def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
         }
     ]
 
-    print(json.dumps(registry.definitions(), indent=2))
+    # print(json.dumps(registry.definitions(), indent=2))
     response = client.chat.completions.create(
         messages=messages, model="gpt-4o-mini", tools=registry.definitions()
     )
@@ -166,17 +166,9 @@ def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
     messages.append(message)
 
     for tool_call in message.tool_calls:
-        function_name = tool_call.function.name
-        args = json.loads(tool_call.function.arguments)
-        call_result = registry.call_tool(function_name, args)
-        messages.append(
-            {
-                "role": "tool",
-                "tool_call_id": tool_call.id,
-                "name": function_name,
-                "content": call_result,
-            }
-        )
+        tool_message = registry.tool_call(tool_call.to_dict())
+        print(tool_message)
+        messages.append(tool_message)
 
     response = client.chat.completions.create(
         messages=messages, model="gpt-4o-mini", tools=registry.definitions()
@@ -188,7 +180,7 @@ def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
     assert function_name == "send_email"
     args = json.loads(tool_calls[0].function.arguments)
     assert args["recipient"] == "foo@example.com"
-    email_result = registry.call_tool(function_name, args)
+    email_result = registry.call(function_name, **args)
     assert "To: foo@example.com" in email_result
     assert "Paris" in email_result
     assert "London" in email_result
@@ -229,7 +221,7 @@ def test_complex_types(client: OpenAI, registry: ToolRegistry) -> None:
     assert "due_date" in args["options"]
     assert isinstance(args["options"]["due_date"], str)
 
-    result = registry.call_tool(function_name, args)
+    result = registry.call(function_name, **args)
     assert "John" in result
     assert "age 30" in result
     assert "high priority" in result
