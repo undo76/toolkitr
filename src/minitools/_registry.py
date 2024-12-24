@@ -169,7 +169,6 @@ class ToolRegistry:
             content=json.dumps(call_result)
         )
 
-
     def definition(self, tool_name: str) -> dict[str, Any]:
         tool_info = self._registry[tool_name]
         return tool_info.definition
