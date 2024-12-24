@@ -4,12 +4,11 @@ from typing import (
     Any,
     Callable,
     get_type_hints,
-    Annotated,
     Optional,
     Literal,
-    TypedDict, Iterator,
+    TypedDict,
+    Iterator,
 )
-from enum import Enum
 from dataclasses import dataclass
 
 from minitools._schema import python_type_to_json_schema, json_to_python
@@ -44,29 +43,31 @@ class ToolInfo:
 
     @property
     def definition(self) -> ToolDefinition:
-        return ToolDefinition(
-            type="function",
-            function=ToolFunctionDefinition(
-                name=self.name,
-                description=self.description,
-                parameters=self.parameters,
-                strict=self.strict,
-            )
-        )
+        return {
+            "type": "function",
+            "function": {
+                "name": self.name,
+                "description": self.description,
+                "parameters": self.parameters,
+                "strict": self.strict,
+            },
+        }
 
 
-class ToolCallFunctionDict(TypedDict, total=False):
+class ToolCallFunctionDict(TypedDict):
     name: str
     arguments: str  # In JSON format
 
 
-class ToolCallDict(TypedDict, total=False):
+class ToolCallDict(TypedDict):
     type: Literal["function"]
     id: str
     function: ToolCallFunctionDict
 
+
 class ToolCallMessageDict(TypedDict):
     """Message returned from a tool call execution."""
+
     role: Literal["tool"]
     tool_call_id: str
     name: str
@@ -135,28 +136,30 @@ class ToolRegistry:
 
         self._registry[tool_name] = tool_info
 
-    def call(self, name: str, **kwargs: any) :
-        tool_info = self._registry[name]
-        func = tool_info.function
-
+    @staticmethod
+    def _build_arguments(func: Callable, arguments: dict[str, Any]) -> dict[str, Any]:
         sig = inspect.signature(func)
         type_hints = get_type_hints(func, include_extras=True)
-
         py_kwargs = {}
         for param_name, param in sig.parameters.items():
-            if param_name == "self":
+            if param_name == "self" and inspect.ismethod(func):
                 continue
             py_type = type_hints.get(param_name, Any)
-            if param_name in kwargs:
-                py_kwargs[param_name] = json_to_python(kwargs[param_name], py_type)
+            if param_name in arguments:
+                py_kwargs[param_name] = json_to_python(arguments[param_name], py_type)
+        return py_kwargs
 
-        if tool_info.is_async:
-            async def async_call():
-                return await func(**py_kwargs)
+    def call(self, name: str, **arguments: any):
+        tool_info = self[name]
+        func = tool_info.function
+        py_kwargs = self._build_arguments(func, arguments)
+        return func(**py_kwargs)
 
-            return async_call()
-        else:
-            return func(**py_kwargs)
+    async def acall(self, name: str, **arguments: any):
+        tool_info = self[name]
+        func = tool_info.function
+        py_kwargs = self._build_arguments(func, arguments)
+        return await func(**py_kwargs)
 
     def tool_call(self, tool_call: ToolCallDict) -> ToolCallMessageDict:
         function = tool_call["function"]
@@ -166,17 +169,30 @@ class ToolRegistry:
             role="tool",
             tool_call_id=tool_call["id"],
             name=function["name"],
-            content=json.dumps(call_result)
+            content=json.dumps(call_result),
         )
 
-    def definition(self, tool_name: str) -> dict[str, Any]:
-        tool_info = self._registry[tool_name]
-        return tool_info.definition
+    async def atool_call(self, tool_call: ToolCallDict) -> ToolCallMessageDict:
+        function = tool_call["function"]
+        arguments = json.loads(function["arguments"])
+        call_result = await self.acall(function["name"], **arguments)
+        return ToolCallMessageDict(
+            role="tool",
+            tool_call_id=tool_call["id"],
+            name=function["name"],
+            content=json.dumps(call_result),
+        )
 
     def definitions(self) -> list[dict[str, Any]]:
         return [tool_info.definition for tool_info in self._registry.values()]
 
-    def tool(self, *, name: str = None, description: str = None, strict: Optional[bool] = None):
+    def tool(
+        self,
+        *,
+        name: str = None,
+        description: str = None,
+        strict: Optional[bool] = None,
+    ):
         def decorator(func: Callable):
             self.register_tool(func, name=name, description=description, strict=strict)
             return func

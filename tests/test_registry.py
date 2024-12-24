@@ -46,15 +46,15 @@ def test_call_tool():
 def test_iteration():
     """Test iteration and container operations on registry."""
     registry = ToolRegistry()
-    
+
     # Test empty registry
     assert len(registry) == 0
     assert list(registry) == []
     assert "echo" not in registry
-    
+
     # Add a tool
     registry.register_tool(lambda x: x, name="echo", description="Echo tool")
-    
+
     # Test non-empty registry
     assert len(registry) == 1
     tools = list(registry)
@@ -77,9 +77,7 @@ def test_method():
             return " ".join([self.name, x])
 
     registry = ToolRegistry()
-    registry.register_tool(
-        Test("Hi").echo
-    )
+    registry.register_tool(Test("Hi").echo)
     assert "echo" in registry
     assert len(registry) == 1
     assert list(registry)[0].name == "echo"
@@ -88,7 +86,7 @@ def test_method():
     assert list(registry)[0].is_async is False
     assert list(registry)[0].parameters == {
         "type": "object",
-        "properties": {"x": { "type": "string"}},
+        "properties": {"x": {"type": "string"}},
         "required": ["x"],
     }
     result = registry.call("echo", **{"x": "test"})

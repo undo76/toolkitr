@@ -104,7 +104,9 @@ def python_type_to_json_schema(py_type: Any, strict: bool = False) -> Dict[str, 
         else:
             if description:
                 schema["description"] = description
-            schema["oneOf"] = [python_type_to_json_schema(a, strict=strict) for a in args]
+            schema["oneOf"] = [
+                python_type_to_json_schema(a, strict=strict) for a in args
+            ]
             return schema
 
     # Lists (List[T])
@@ -149,7 +151,9 @@ def python_type_to_json_schema(py_type: Any, strict: bool = False) -> Dict[str, 
         if description:
             schema["description"] = description
         key_type, value_type = get_args(py_type)
-        schema["additionalProperties"] = python_type_to_json_schema(value_type, strict=strict)
+        schema["additionalProperties"] = python_type_to_json_schema(
+            value_type, strict=strict
+        )
         if strict:
             schema["additionalProperties"] = False
         return schema
