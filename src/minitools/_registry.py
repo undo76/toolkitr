@@ -56,8 +56,9 @@ class ToolInfo:
 
 
 class ToolRegistry:
-    def __init__(self):
+    def __init__(self, strict: bool = False):
         self._registry: dict[str, ToolInfo] = {}
+        self._default_strict = strict
 
     def __getitem__(self, tool_name: str):
         return self._registry[tool_name]
@@ -77,8 +78,9 @@ class ToolRegistry:
         *,
         name: Optional[str] = None,
         description: Optional[str] = None,
-        strict: bool = False,
+        strict: Optional[bool] = None,
     ):
+        strict = self._default_strict if strict is None else strict
         sig = inspect.signature(func)
         type_hints = get_type_hints(func, include_extras=True)
 
@@ -145,7 +147,7 @@ class ToolRegistry:
     def definitions(self) -> list[dict[str, Any]]:
         return [tool_info.definition for tool_info in self._registry.values()]
 
-    def tool(self, *, name: str = None, description: str = None, strict: bool = False):
+    def tool(self, *, name: str = None, description: str = None, strict: Optional[bool] = None):
         def decorator(func: Callable):
             self.register_tool(func, name=name, description=description, strict=strict)
             return func
