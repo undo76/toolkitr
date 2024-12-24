@@ -40,6 +40,11 @@ def get_weather(location: Annotated[str, "The location to get the weather for"])
     return f"The weather in {location} is sunny."
 
 
+async def aget_weather(location: Annotated[str, "The location to get the weather for"]) -> str:
+    """Get the weather for a location asynchronously."""
+    return f"The weather in {location} is sunny."
+
+
 def send_email(
     recipient: Annotated[str, "The email address of the recipient"],
     subject: Annotated[str, "The subject of the email"],
@@ -175,6 +180,25 @@ def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
     assert "To: foo@example.com" in email_result["content"]
     assert "Paris" in email_result["content"]
     assert "London" in email_result["content"]
+
+
+@pytest.mark.asyncio
+async def test_async_tool(client: OpenAI, registry: ToolRegistry) -> None:
+    """Test async call to a registered tool."""
+    messages = [
+        {"role": "user", "content": "What is the weather in Tokyo?"},
+    ]
+    registry.register_tool(aget_weather)
+    response = client.chat.completions.create(
+        messages=messages, model="gpt-4o-mini", tools=registry.definitions()
+    )
+    tool_calls = response.choices[0].message.tool_calls
+    function_name = tool_calls[0].function.name
+    assert function_name == "aget_weather"
+    args = json.loads(tool_calls[0].function.arguments)
+    assert args["location"] == "Tokyo"
+    call_result = await registry.acall(function_name, **args)
+    assert "The weather in Tokyo is sunny." in call_result
 
 
 def test_complex_types(client: OpenAI, registry: ToolRegistry) -> None:
