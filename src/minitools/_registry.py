@@ -97,6 +97,8 @@ class ToolRegistry:
                 required_fields.append(param_name)
 
         parameters_schema = {"type": "object", "properties": properties}
+        if strict:
+            parameters_schema["additionalProperties"] = False
         if required_fields:
             parameters_schema["required"] = required_fields
 
