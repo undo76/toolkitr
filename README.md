@@ -87,6 +87,32 @@ for tool_call in tool_calls:
     result = registry.call_tool(function_name, args)
 ```
 
+## Limitations
+
+### Tuple Handling
+When using tuples with LLM providers like OpenAI, you may encounter inconsistent handling of tuple types in function calls. This is because tuples are serialized to JSON arrays, and LLMs may not reliably maintain the fixed-length nature of tuples.
+
+**Recommendation:** Instead of using plain tuples, prefer:
+- `NamedTuple` for fixed-length sequences with named fields
+- `List` for variable-length sequences
+- `dataclass` for structured data
+
+Example of recommended approach:
+```python
+# Instead of:
+def process_point(point: Tuple[float, float]):
+    x, y = point
+    return f"Point at {x}, {y}"
+
+# Prefer:
+class Point(NamedTuple):
+    x: float
+    y: float
+
+def process_point(point: Point):
+    return f"Point at {point.x}, {point.y}"
+```
+
 ## Advanced Usage
 
 ### Complex Types
