@@ -41,11 +41,14 @@ Here's a simple example of how to use Minitools:
 from typing import Annotated
 from minitools import ToolRegistry
 
-# Create a new _registry
-registry = ToolRegistry()
+# Create a new registry with strict mode enabled
+registry = ToolRegistry(strict=True)  # Enforces exact parameter matching
+# Or with strict mode disabled (default)
+registry = ToolRegistry(strict=False)  # Allows additional parameters
 
 # Register a function as a tool
-@registry.tool()
+# Register with specific strict mode
+@registry.tool(strict=True)  # Override registry's default strict mode
 def get_weather(location: Annotated[str, "The location to get weather for"]) -> str:
     """Get the weather for a location."""
     return f"The weather in {location} is sunny."
@@ -192,9 +195,37 @@ def create_user(
 - Python 3.11 or higher
 - Optional dependencies for specific LLM integrations (e.g., `openai` package for OpenAI integration)
 
+### Strict Mode
+
+Minitools supports strict mode for parameter validation:
+
+```python
+# Global strict mode for all tools
+registry = ToolRegistry(strict=True)
+
+# Per-tool strict mode override
+@registry.tool(strict=False)
+def flexible_tool(param: str) -> str:
+    """This tool allows additional parameters."""
+    return f"Got {param}"
+
+# Register with specific strict mode
+registry.register_tool(my_func, strict=True)
+```
+
+When strict mode is enabled:
+- Exact parameter matching is enforced
+- Additional properties in JSON schema are disallowed
+- Tool calls must match the function signature exactly
+
+When strict mode is disabled (default):
+- Additional parameters are allowed in tool calls
+- More lenient parameter validation
+- Useful for tools that may receive extra context from LLMs
+
 ## Roadmap
 
-- [ ] Add support for `strict` mode and other flavour options for JSON Schema generation
+- [x] Add support for `strict` mode and other flavour options for JSON Schema generation
 - [ ] Parameters documentation parsing
 - [ ] Add support for more complex Python types (e.g., generics, Pydantic models)
 - [ ] Improve error handling and validation for tool calls
