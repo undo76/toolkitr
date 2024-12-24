@@ -1,7 +1,7 @@
 import json
-from typing import Annotated, Any, Literal, Tuple, TypedDict, NamedTuple, cast
+from typing import Annotated, Literal, TypedDict, NamedTuple, cast
 from enum import Enum
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 
 import pytest
 from openai import OpenAI
