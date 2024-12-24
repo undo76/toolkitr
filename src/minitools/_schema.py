@@ -127,10 +127,17 @@ def python_type_to_json_schema(py_type: Any, strict: bool = False) -> Dict[str, 
             # variable-length tuple
             item_schema = python_type_to_json_schema(args_[0], strict=strict)
             schema["items"] = item_schema
-        else:
+        else: # Warn the user AI!
             # fixed-length tuple
-            schema["prefixItems"] = [python_type_to_json_schema(a, strict=strict) for a in args_]
-            schema["items"] = False  # Prevent additional items
+            # This is buggy, it shouldn't be used
+
+
+
+            items = [python_type_to_json_schema(a, strict=strict) for a in args_]
+            length = len(items)
+            schema["items"] = items
+            schema["minItems"] = length
+            schema["maxItems"] = length
         return schema
 
     # Dicts (Dict[str, T])
