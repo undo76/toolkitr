@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Annotated, Literal, TypedDict, NamedTuple, cast
 from enum import Enum
@@ -73,6 +74,8 @@ def create_complex_task(
         f"coordinates {coordinates}, status: {status}, due: {options['due_date']}, "
         f"tags: {', '.join(options['tags'])}"
     )
+
+
 
 
 @pytest.fixture
@@ -183,12 +186,13 @@ def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
 
 
 @pytest.mark.asyncio
-async def test_async_tool(client: OpenAI, registry: ToolRegistry) -> None:
+async def test_async_tool(client: OpenAI) -> None:
     """Test async call to a registered tool."""
+    registry = ToolRegistry()
+    registry.register_tool(aget_weather)
     messages = [
         {"role": "user", "content": "What is the weather in Tokyo?"},
     ]
-    registry.register_tool(aget_weather)
     response = client.chat.completions.create(
         messages=messages, model="gpt-4o-mini", tools=registry.definitions()
     )
