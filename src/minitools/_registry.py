@@ -55,17 +55,17 @@ class ToolInfo:
         )
 
 
-class ToolCallFunction(TypedDict):
+class ToolCallFunctionDict(TypedDict, total=False):
     name: str
     arguments: str  # In JSON format
 
 
-class ToolCall(TypedDict):
-    type:  Literal["function"]
+class ToolCallDict(TypedDict, total=False):
+    type: Literal["function"]
     id: str
-    function: ToolCallFunction
+    function: ToolCallFunctionDict
 
-class ToolCallMessage(TypedDict):
+class ToolCallMessageDict(TypedDict):
     """Message returned from a tool call execution."""
     role: Literal["tool"]
     tool_call_id: str
@@ -158,11 +158,11 @@ class ToolRegistry:
         else:
             return func(**py_kwargs)
 
-    def tool_call(self, tool_call: ToolCall) -> ToolCallMessage:
+    def tool_call(self, tool_call: ToolCallDict) -> ToolCallMessageDict:
         function = tool_call["function"]
         arguments = json.loads(function["arguments"])
         call_result = self.call(function["name"], **arguments)
-        return ToolCallMessage(
+        return ToolCallMessageDict(
             role="tool",
             tool_call_id=tool_call["id"],
             name=function["name"],

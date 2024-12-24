@@ -1,11 +1,11 @@
 import json
-from typing import Annotated, Any, Literal, Tuple, TypedDict, NamedTuple
+from typing import Annotated, Any, Literal, Tuple, TypedDict, NamedTuple, cast
 from enum import Enum
 from dataclasses import dataclass, asdict
 
 import pytest
 from openai import OpenAI
-from minitools._registry import ToolRegistry
+from minitools._registry import ToolRegistry, ToolCallDict
 
 
 class Priority(Enum):
@@ -152,7 +152,6 @@ def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
         }
     ]
 
-    # print(json.dumps(registry.definitions(), indent=2))
     response = client.chat.completions.create(
         messages=messages, model="gpt-4o-mini", tools=registry.definitions()
     )
@@ -161,8 +160,8 @@ def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
     messages.append(message)
 
     for tool_call in message.tool_calls:
-        tool_response = registry.tool_call(tool_call.to_dict())
-        print(tool_response)
+        tool_call_dict: ToolCallDict = cast(ToolCallDict, tool_call.to_dict())
+        tool_response = registry.tool_call(tool_call_dict)
         messages.append(tool_response)
 
     response = client.chat.completions.create(
@@ -171,7 +170,8 @@ def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
 
     tool_calls = response.choices[0].message.tool_calls
     assert len(tool_calls) == 1
-    email_result = registry.tool_call(tool_calls[0].to_dict())
+    tool_call_dict: ToolCallDict = cast(ToolCallDict, tool_calls[0].to_dict())
+    email_result = registry.tool_call(tool_call_dict)
     assert "To: foo@example.com" in email_result["content"]
     assert "Paris" in email_result["content"]
     assert "London" in email_result["content"]
