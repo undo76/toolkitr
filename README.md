@@ -192,6 +192,16 @@ def create_user(
 - Python 3.11 or higher
 - Optional dependencies for specific LLM integrations (e.g., `openai` package for OpenAI integration)
 
+## Roadmap
+
+- [ ] Add support for `strict` mode and other flavour options for JSON Schema generation
+- [ ] Parameters documentation parsing
+- [ ] Add support for more complex Python types (e.g., generics, Pydantic models)
+- [ ] Improve error handling and validation for tool calls
+- [ ] Hooks for customizing tool registration and execution
+- [ ] Improve async support for LLM integrations
+- [ ] Publish the registry as MCP (Model Context Protocol)
+
 ## Development
 
 To set up the development environment:
