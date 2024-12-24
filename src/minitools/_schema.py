@@ -166,6 +166,8 @@ def python_type_to_json_schema(py_type: Any, strict: bool = False) -> Dict[str, 
             for opt_key in py_type.__optional_keys__:
                 if opt_key in required_fields:
                     required_fields.remove(opt_key)
+        if strict:
+            schema["additionalProperties"] = False
         if required_fields:
             schema["required"] = required_fields
 
