@@ -199,9 +199,8 @@ def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
     assert "London" in email_result
 
 
-def test_complex_types(client: OpenAI) -> None:
+def test_complex_types(client: OpenAI, registry: ToolRegistry) -> None:
     """Test handling of complex Python types including tuples, literals, enums, dataclasses and TypedDict."""
-    registry = ToolRegistry()
     registry.register_tool(create_complex_task)
 
     messages = [
