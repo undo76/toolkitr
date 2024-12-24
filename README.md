@@ -223,7 +223,7 @@ def create_user(
 
 ### Strict Mode
 
-Minitools supports strict mode for parameter validation:
+Minitools supports strict mode for OpenAI function calling:
 
 ```python
 # Global strict mode for all tools
@@ -240,14 +240,14 @@ registry.register_tool(my_func, strict=True)
 ```
 
 When strict mode is enabled:
-- Exact parameter matching is enforced
-- Additional properties in JSON schema are disallowed
-- Tool calls must match the function signature exactly
+- OpenAI's function calling will be restricted to only use declared parameters
+- Additional properties in the function schema are marked as not allowed
+- Helps prevent hallucination of non-existent parameters by the LLM
 
 When strict mode is disabled (default):
-- Additional parameters are allowed in tool calls
-- More lenient parameter validation
-- Useful for tools that may receive extra context from LLMs
+- OpenAI's function calling may include additional parameters
+- More lenient schema validation
+- Useful when you want to allow the LLM more flexibility in function calls
 
 ## Roadmap
 
