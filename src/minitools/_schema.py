@@ -183,11 +183,11 @@ def python_type_to_json_schema(py_type: Any, strict: bool = False) -> Dict[str, 
 
         nt_fields = py_type.__annotations__
         props = {
-            fname: python_type_to_json_schema(ftype)
+            fname: python_type_to_json_schema(ftype, strict=strict)
             for fname, ftype in nt_fields.items()
+        }
         if strict:
             schema["additionalProperties"] = False
-        }
         schema["properties"] = props
         schema["required"] = list(props.keys())
         return schema
