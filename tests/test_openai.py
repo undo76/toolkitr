@@ -32,12 +32,13 @@ def client() -> OpenAI:
     return OpenAI()
 
 
-@pytest.fixture
-def registry() -> ToolRegistry:
-    """Create a tool _registry."""
+@pytest.fixture(params=[True, False])
+def registry(request) -> ToolRegistry:
+    """Create a tool registry with strict mode parameterized."""
     registry = ToolRegistry()
-    registry.register_tool(get_weather, strict=True)
-    registry.register_tool(send_email, strict=True)
+    strict = request.param
+    registry.register_tool(get_weather, strict=strict)
+    registry.register_tool(send_email, strict=strict)
     return registry
 
 
@@ -51,13 +52,15 @@ def test_openai(client: OpenAI) -> None:
     assert "Paris" in answer
 
 
-def test_tool(client: OpenAI, registry: ToolRegistry) -> None:
-    """Test call to a registered tool."""
+def test_tool(client: OpenAI) -> None:
+    """Test call to a registered tool with both strict and non-strict modes."""
     messages = [
         {"role": "user", "content": "What is the weather in London?"},
     ]
-    registry = ToolRegistry()
-    registry.register_tool(get_weather)
+    
+    for strict in [True, False]:
+        registry = ToolRegistry()
+        registry.register_tool(get_weather, strict=strict)
 
     response = client.chat.completions.create(
         messages=messages, model="gpt-4o-mini", tools=registry.definitions()
