@@ -1,7 +1,6 @@
 import asyncio
 import json
-from pyexpat.errors import messages
-from typing import Annotated, Literal, TypedDict, NamedTuple, cast, Any
+from typing import Annotated, Literal, TypedDict, NamedTuple
 from enum import Enum
 from dataclasses import dataclass
 
@@ -169,7 +168,7 @@ def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
     messages.append(message)
 
     for tool_call in message.tool_calls:
-        tool_call_dict: ToolCallDict = cast(ToolCallDict, tool_call.to_dict())
+        tool_call_dict: ToolCallDict = tool_call.model_dump()
         tool_response = registry.tool_call(tool_call_dict)
         messages.append(tool_response)
 
@@ -179,7 +178,7 @@ def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
 
     tool_calls = response.choices[0].message.tool_calls
     assert len(tool_calls) == 1
-    tool_call_dict: ToolCallDict = cast(ToolCallDict, tool_calls[0].to_dict())
+    tool_call_dict: ToolCallDict = tool_calls[0].model_dump()
     email_result = registry.tool_call(tool_call_dict)
     assert "To: foo@example.com" in email_result["content"]
     assert "Paris" in email_result["content"]
@@ -220,7 +219,7 @@ async def test_async_multiple_tools(client: OpenAI) -> None:
     assert len(tool_calls) == 2
     messages += await asyncio.gather(
         *(
-            registry.atool_call(cast(ToolCallDict, tool_call.to_dict()))
+            registry.atool_call(tool_call.model_dump())
             for tool_call in tool_calls
         )
     )

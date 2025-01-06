@@ -94,7 +94,7 @@ response = client.chat.completions.create(
 # Handle tool calls
 message = response.choices[0].message
 for tool_call in message.tool_calls:
-    tool_response = registry.tool_call(tool_call.to_dict())
+    tool_response = registry.tool_call(tool_call.model_dump())
     messages.append(tool_response)  # Add tool response to conversation
 ```
 
@@ -205,7 +205,7 @@ def send_email(
     config: Annotated[EmailConfig, "Email server configuration"]
 ) -> str:
     """Send an email to a recipient."""
-    return f"Email sent to {recipient}"
+    return f"Email sent to {recipient}. Subject: {subject}, Body: {body}, config: {config}"
 ```
 
 #### Mixing Approaches
