@@ -314,9 +314,4 @@ def json_to_python(value: Any, py_type: Any) -> Any:
                 raise ValueError(f"Missing required field {f.name}")
         return py_type(**kwargs)
 
-    from typing import Any as AnyType
-
-    if py_type is AnyType:
-        return value
-
     return value
