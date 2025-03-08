@@ -65,7 +65,7 @@ def test_literal():
 
 def test_optional():
     schema = python_type_to_json_schema(Optional[str])
-    assert schema == {"oneOf": [{"type": "string"}, {"type": "null"}]}
+    assert schema == {"type": ["string", "null"]}
 
     # Test conversion
     assert json_to_python(None, Optional[str]) is None
@@ -75,7 +75,8 @@ def test_optional():
 def test_optional_literal():
     schema = python_type_to_json_schema(Optional[Literal["a", "b"]])
     assert schema == {
-        "oneOf": [{"type": "string", "enum": ["a", "b"]}, {"type": "null"}]
+        "type": ["string", "null"],
+        "enum": ["a", "b"]
     }
 
     # Test conversion
@@ -132,7 +133,7 @@ def test_typed_dict():
         "type": "object",
         "properties": {
             "name": {"type": "string"},
-            "role": {"oneOf": [{"type": "string"}, {"type": "null"}]},
+            "role": {"type": ["string", "null"]},
         },
     }
 
@@ -191,7 +192,7 @@ def test_union():
 
 def test_union_optional():
     schema = python_type_to_json_schema(Union[str, None])
-    assert schema == {"oneOf": [{"type": "string"}, {"type": "null"}]}
+    assert schema == {"type": ["string", "null"]}
 
     # Test conversion
     assert json_to_python("test", str | None) == "test"
@@ -203,6 +204,7 @@ def test_all():
     schema = python_type_to_json_schema(
         Dict[str, Union[str, List[int], Tuple[int, int], Optional[Color]]]
     )
+    # With complex mixed types, we'll still use oneOf
     assert schema == {
         "type": "object",
         "additionalProperties": {

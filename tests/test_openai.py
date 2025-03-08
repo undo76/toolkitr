@@ -1,6 +1,6 @@
 import asyncio
 import json
-from typing import Annotated, Literal, TypedDict, NamedTuple
+from typing import Annotated, Literal, TypedDict, NamedTuple, Optional
 from enum import Enum
 from dataclasses import dataclass
 
@@ -36,15 +36,23 @@ class Coordinates(NamedTuple):
     longitude: float
 
 
-def get_weather(location: Annotated[str, "The location to get the weather for"]) -> str:
+def get_weather(
+    location: Annotated[str, "The location to get the weather for"],
+    units: Annotated[Optional[str], "The units to use for temperature (e.g., 'celsius', 'fahrenheit')"] = None
+) -> str:
     """Get the weather for a location."""
+    if units:
+        return f"The weather in {location} is sunny with temperature in {units}."
     return f"The weather in {location} is sunny."
 
 
 async def aget_weather(
-    location: Annotated[str, "The location to get the weather for"]
+    location: Annotated[str, "The location to get the weather for"],
+    units: Annotated[Optional[str], "The units to use for temperature (e.g., 'celsius', 'fahrenheit')"] = None
 ) -> str:
     """Get the weather for a location asynchronously."""
+    if units:
+        return f"The weather in {location} is sunny with temperature in {units}."
     return f"The weather in {location} is sunny."
 
 
@@ -123,7 +131,7 @@ def test_tool(client: OpenAI, registry: ToolRegistry) -> None:
     args = json.loads(tool_calls[0].function.arguments)
     assert args["location"] == "London"
     call_result = registry.call(function_name, **args)
-    assert "The weather in London is sunny." in call_result
+    assert "The weather in London is sunny" in call_result
 
 
 def test_multiple_tools(client: OpenAI, registry: ToolRegistry) -> None:
@@ -142,13 +150,13 @@ def test_multiple_tools(client: OpenAI, registry: ToolRegistry) -> None:
     args = json.loads(tool_calls[0].function.arguments)
     assert args["location"] == "London"
     call_result = registry.call(function_name, **args)
-    assert "The weather in London is sunny." in call_result
+    assert "The weather in London is sunny" in call_result
     function_name = tool_calls[1].function.name
     assert function_name == "get_weather"
     args = json.loads(tool_calls[1].function.arguments)
     assert args["location"] == "Paris"
     call_result = registry.call(function_name, **args)
-    assert "The weather in Paris is sunny." in call_result
+    assert "The weather in Paris is sunny" in call_result
 
 
 def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
@@ -202,7 +210,7 @@ async def test_async_tool(client: OpenAI) -> None:
     args = json.loads(tool_calls[0].function.arguments)
     assert args["location"] == "Tokyo"
     call_result = await registry.acall(function_name, **args)
-    assert "The weather in Tokyo is sunny." in call_result
+    assert "The weather in Tokyo is sunny" in call_result
 
 
 @pytest.mark.asyncio

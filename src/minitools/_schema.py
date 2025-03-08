@@ -98,7 +98,30 @@ def python_type_to_json_schema(py_type: Any, strict: bool = False) -> Dict[str, 
         if len(args) == 2 and NoneType in args:
             non_none_type = args[0] if args[1] is NoneType else args[1]
             sub_schema = python_type_to_json_schema(non_none_type, strict=strict)
-            schema["oneOf"] = [sub_schema, {"type": "null"}]
+            # Copy all properties from sub_schema
+            for key, value in sub_schema.items():
+                if key != "type" and key != "oneOf":
+                    schema[key] = value
+            
+            # Always use type array approach when possible
+            non_none_schema_type = sub_schema.get("type")
+            if non_none_schema_type:
+                if isinstance(non_none_schema_type, list):
+                    if "null" not in non_none_schema_type:
+                        schema["type"] = non_none_schema_type + ["null"]
+                else:
+                    schema["type"] = [non_none_schema_type, "null"]
+            elif "oneOf" in sub_schema:
+                # For complex unions, still use oneOf
+                schema["oneOf"] = sub_schema["oneOf"] + [{"type": "null"}]
+            elif "enum" in sub_schema:
+                # For enums, preserve the enum values and add null to type
+                schema["enum"] = sub_schema["enum"]
+                schema["type"] = ["string", "null"]
+            else:
+                # If no type and no oneOf, default to string|null
+                schema["type"] = ["string", "null"]
+            
             if description:
                 schema["description"] = description
             return schema

@@ -8,7 +8,9 @@ from typing import (
     Literal,
     TypedDict,
     Iterator, Coroutine,
+    Union, get_origin, get_args,
 )
+from minitools._schema import NoneType
 from dataclasses import dataclass
 
 from minitools._schema import python_type_to_json_schema, json_to_python
@@ -114,8 +116,23 @@ class ToolRegistry:
             py_type = type_hints.get(param_name, Any)
             schema_prop = python_type_to_json_schema(py_type, strict=strict)
             properties[param_name] = schema_prop
-            if param.default is inspect.Parameter.empty:
+            
+            # In strict mode, add all parameters to required fields
+            # In non-strict mode, only add if not optional and has no default
+            if strict:
                 required_fields.append(param_name)
+            else:
+                # Check if the parameter is optional
+                is_optional = False
+                origin = get_origin(py_type)
+                if origin is Union:
+                    args = get_args(py_type)
+                    if len(args) == 2 and NoneType in args:
+                        is_optional = True
+                
+                # Only add to required if it has no default value and is not Optional
+                if param.default is inspect.Parameter.empty and not is_optional:
+                    required_fields.append(param_name)
 
         parameters_schema = {"type": "object", "properties": properties}
         if strict:
