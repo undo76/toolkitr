@@ -7,6 +7,9 @@ A lightweight Python library for creating and managing function tools that can i
 - LLM-agnostic function tool registry system
 - Simple tool registration with function decorators
 - Automatic JSON Schema generation from Python type annotations
+- Unified interface for both synchronous and asynchronous tools
+- Custom response serialization for both success and error responses
+- Configurable exception handling
 - Support for complex Python types including:
   - Enums
   - Dataclasses
@@ -96,6 +99,100 @@ message = response.choices[0].message
 for tool_call in message.tool_calls:
     tool_response = registry.tool_call(tool_call.model_dump())
     messages.append(tool_response)  # Add tool response to conversation
+```
+
+## Unified Calling for Sync and Async Tools
+
+Minitools provides a unified way to call tools regardless of whether they're synchronous or asynchronous:
+
+```python
+# Define synchronous and asynchronous tools
+def sync_function(x: str) -> str:
+    return f"Sync: {x}"
+
+async def async_function(x: str) -> str:
+    await asyncio.sleep(0.1)  # Async operation
+    return f"Async: {x}"
+
+# Register both types of tools
+registry = ToolRegistry()
+registry.register_tool(sync_function)
+registry.register_tool(async_function)
+
+# Use smart_call to handle both types uniformly
+async def main():
+    # Works with both sync and async functions
+    sync_result = await registry.smart_call("sync_function", x="Hello")
+    async_result = await registry.smart_call("async_function", x="World")
+    
+    # Similarly, smart_tool_call works for OpenAI-style tool calls
+    response = await registry.smart_tool_call({
+        "id": "call_123",
+        "type": "function",
+        "function": {
+            "name": "sync_function",
+            "arguments": '{"x": "From OpenAI"}'
+        }
+    })
+```
+
+## Custom Response Serialization
+
+Minitools allows customizing how tool results are serialized in responses:
+
+```python
+import json
+from minitools import ToolRegistry, default_serializer
+
+# Define a custom serializer
+def pretty_serializer(result: any) -> str:
+    if isinstance(result, str):
+        return f'"{result} (serialized)"'
+    return json.dumps(result, indent=2)
+
+# Registry-level serializer
+registry = ToolRegistry(response_serializer=pretty_serializer)
+
+# Or per-tool serializer
+@registry.tool(response_serializer=lambda x: f'"Custom: {x}"')
+def special_tool(input: str) -> str:
+    return input.upper()
+
+# Default serializer is also available for import
+from minitools import default_serializer
+```
+
+## Exception Handling
+
+Minitools provides robust exception handling with customizable serialization:
+
+```python
+# Configure exception handling at registry level
+registry = ToolRegistry(
+    # Custom exception serializer
+    exception_serializer=lambda exc: json.dumps({
+        "error_type": type(exc).__name__,
+        "message": str(exc),
+        "custom_field": "Additional context"
+    }),
+    # Control whether exceptions are caught or bubble up
+    catch_exceptions=True  # Set to False to let exceptions propagate
+)
+
+# Per-tool exception handling
+@registry.tool(
+    exception_serializer=lambda exc: json.dumps({
+        "custom_error": str(exc)
+    })
+)
+def risky_function(input: str) -> str:
+    if input == "fail":
+        raise ValueError("Intentional failure")
+    return f"Success: {input}"
+
+# When a tool raises an exception:
+# - If catch_exceptions=True: Returns serialized error response
+# - If catch_exceptions=False: Raises the exception normally
 ```
 
 ## Limitations
@@ -263,11 +360,12 @@ When strict mode is disabled (default):
 ## Roadmap
 
 - [x] Add support for `strict` mode and other flavour options for JSON Schema generation
+- [x] Add unified interface for synchronous and asynchronous tools
+- [x] Add custom serialization for tool responses
+- [x] Add configurable exception handling
 - [ ] Parameters documentation parsing
 - [ ] Add support for more complex Python types (e.g., generics, Pydantic models)
-- [ ] Improve error handling and validation for tool calls
 - [ ] Hooks for customizing tool registration and execution
-- [ ] Improve async support for LLM integrations
 - [ ] Publish the registry as MCP (Model Context Protocol)
 
 ## Development
