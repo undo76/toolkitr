@@ -160,6 +160,56 @@ class ToolRegistry:
     def __contains__(self, item) -> bool:
         return item in self._registry
 
+    def import_registry(
+        self, 
+        registry: 'ToolRegistry', 
+        namespace: Optional[str] = None,
+        overwrite: bool = False
+    ):
+        """Import tools from another registry.
+        
+        Args:
+            registry: The registry to import tools from
+            namespace: Optional prefix to add to imported tool names (e.g., "math")
+            overwrite: Whether to overwrite existing tools with the same name
+        
+        Example:
+            # Create registries
+            math_registry = ToolRegistry()
+            math_registry.register_tool(add)
+            math_registry.register_tool(subtract)
+            
+            main_registry = ToolRegistry()
+            main_registry.import_registry(math_registry, namespace="math")
+            
+            # Call imported tools
+            result = main_registry.call("math.add", a=1, b=2)  # Returns 3
+        """
+        for tool_info in registry:
+            if namespace:
+                name = f"{namespace}.{tool_info.name}"
+            else:
+                name = tool_info.name
+                
+            if name in self and not overwrite:
+                raise ValueError(f"Tool with name '{name}' already exists. Use overwrite=True to replace it.")
+            
+            # Create a new ToolInfo with the updated name
+            imported_tool = ToolInfo(
+                name=name,
+                description=tool_info.description,
+                parameters=tool_info.parameters,
+                function=tool_info.function,
+                is_async=tool_info.is_async,
+                strict=tool_info.strict,
+                title=tool_info.title,
+                response_serializer=tool_info.response_serializer,
+                exception_serializer=tool_info.exception_serializer,
+            )
+            
+            # Add to registry
+            self._registry[name] = imported_tool
+
     def register_tool(
         self,
         func: Callable,

@@ -91,3 +91,38 @@ def test_method():
     }
     result = registry.call("echo", **{"x": "test"})
     assert result == "Hi test"
+
+
+def test_import_registry():
+    """Test importing tools from another registry."""
+    # Create source registry
+    src_registry = ToolRegistry()
+    src_registry.register_tool(lambda x: x, name="echo", description="Echoes the input.")
+    
+    # Create target registry
+    target_registry = ToolRegistry()
+    
+    # Import without namespace
+    target_registry.import_registry(src_registry)
+    assert "echo" in target_registry
+    assert target_registry.call("echo", x="test") == "test"
+    
+    # Create another target registry for namespaced import
+    ns_registry = ToolRegistry()
+    
+    # Import with namespace
+    ns_registry.import_registry(src_registry, namespace="utils")
+    assert "utils.echo" in ns_registry
+    assert "echo" not in ns_registry
+    assert ns_registry.call("utils.echo", x="test") == "test"
+    
+    # Test overwrite behavior
+    ns_registry.register_tool(lambda x: f"original: {x}", name="utils.echo")
+    
+    # Should raise an error when trying to import with the same name
+    with pytest.raises(ValueError):
+        ns_registry.import_registry(src_registry, namespace="utils")
+    
+    # Should work with overwrite=True
+    ns_registry.import_registry(src_registry, namespace="utils", overwrite=True)
+    assert ns_registry.call("utils.echo", x="test") == "test"  # Overwritten with imported function
