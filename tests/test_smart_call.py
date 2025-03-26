@@ -152,6 +152,96 @@ async def test_per_tool_serializer():
 
 
 @pytest.mark.asyncio
+async def test_exception_handling():
+    """Test exception handling in tool calls."""
+    def failing_function():
+        """This function always fails."""
+        raise ValueError("This function failed intentionally")
+        
+    registry = ToolRegistry()
+    registry.register_tool(failing_function)
+    
+    # Test with synchronous function
+    tool_call = {
+        "type": "function",
+        "id": "call_fail",
+        "function": {
+            "name": "failing_function",
+            "arguments": '{}'
+        }
+    }
+    
+    response = await registry.smart_tool_call(tool_call)
+    
+    assert response["role"] == "tool"
+    assert response["tool_call_id"] == "call_fail"
+    assert response["name"] == "failing_function"
+    
+    # The content should be a JSON string with error details
+    error_data = json.loads(response["content"])
+    assert "error" in error_data
+    assert error_data["error"]["type"] == "ValueError"
+    assert error_data["error"]["message"] == "This function failed intentionally"
+    
+@pytest.mark.asyncio
+async def test_custom_exception_serializer():
+    """Test custom exception serializer."""
+    def custom_exception_serializer(exc: Exception) -> str:
+        return json.dumps({
+            "custom_error": {
+                "name": type(exc).__name__,
+                "info": str(exc)
+            }
+        })
+    
+    def failing_function():
+        """This function always fails."""
+        raise RuntimeError("Custom error message")
+    
+    registry = ToolRegistry(exception_serializer=custom_exception_serializer)
+    registry.register_tool(failing_function)
+    
+    tool_call = {
+        "type": "function",
+        "id": "call_custom_error",
+        "function": {
+            "name": "failing_function",
+            "arguments": '{}'
+        }
+    }
+    
+    response = await registry.smart_tool_call(tool_call)
+    
+    # Verify custom format
+    error_data = json.loads(response["content"])
+    assert "custom_error" in error_data
+    assert error_data["custom_error"]["name"] == "RuntimeError"
+    assert error_data["custom_error"]["info"] == "Custom error message"
+
+@pytest.mark.asyncio
+async def test_no_exception_catching():
+    """Test with exception catching disabled."""
+    def failing_function():
+        """This function always fails."""
+        raise ValueError("Should not be caught")
+    
+    registry = ToolRegistry(catch_exceptions=False)
+    registry.register_tool(failing_function)
+    
+    tool_call = {
+        "type": "function",
+        "id": "call_uncaught",
+        "function": {
+            "name": "failing_function",
+            "arguments": '{}'
+        }
+    }
+    
+    # The exception should bubble up
+    with pytest.raises(ValueError, match="Should not be caught"):
+        await registry.smart_tool_call(tool_call)
+
+@pytest.mark.asyncio
 async def test_class_with_smart_call():
     """Test smart_call with class methods."""
 

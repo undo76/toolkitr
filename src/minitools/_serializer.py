@@ -1,6 +1,7 @@
 import json
+import traceback
 from enum import Enum
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 def default_serializer(obj: Any) -> str:
     """Smart serializer that handles various Python types appropriately.
@@ -41,3 +42,17 @@ def default_serializer(obj: Any) -> str:
     except:
         # Fallback to basic string representation if JSON fails
         return f'"{str(obj)}"'  # Quote the string to make valid JSON
+
+def default_exception_serializer(exc: Exception) -> str:
+    """Default serializer for exceptions.
+    
+    Returns a JSON object with the exception type and message.
+    """
+    return json.dumps({
+        "error": {
+            "type": type(exc).__name__,
+            "message": str(exc),
+            # Include traceback for debugging but without full paths
+            "traceback": traceback.format_exc().splitlines()
+        }
+    })

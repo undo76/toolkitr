@@ -15,6 +15,7 @@ from minitools._schema import NoneType
 from dataclasses import dataclass
 
 from minitools._schema import python_type_to_json_schema, json_to_python
+from minitools._serializer import default_exception_serializer
 
 
 class ToolFunctionDefinition(TypedDict, total=False):
@@ -44,6 +45,7 @@ class ToolInfo:
     is_async: bool = False
     strict: bool = False
     response_serializer: Optional[Callable[[Any], str]] = None
+    exception_serializer: Optional[Callable[[Exception], str]] = None
 
     @property
     def definition(self) -> ToolDefinition:
@@ -82,11 +84,15 @@ class ToolRegistry:
     def __init__(
         self, 
         strict: bool = False,
-        response_serializer: Callable[[Any], str] = None
+        response_serializer: Callable[[Any], str] = None,
+        exception_serializer: Callable[[Exception], str] = None,
+        catch_exceptions: bool = True
     ):
         self._registry: dict[str, ToolInfo] = {}
         self._default_strict = strict
         self._response_serializer = response_serializer or json.dumps
+        self._exception_serializer = exception_serializer or default_exception_serializer
+        self._catch_exceptions = catch_exceptions
         
     @property
     def response_serializer(self) -> Callable[[Any], str]:
@@ -95,6 +101,22 @@ class ToolRegistry:
     @response_serializer.setter
     def response_serializer(self, serializer: Callable[[Any], str]):
         self._response_serializer = serializer
+        
+    @property
+    def exception_serializer(self) -> Callable[[Exception], str]:
+        return self._exception_serializer
+        
+    @exception_serializer.setter
+    def exception_serializer(self, serializer: Callable[[Exception], str]):
+        self._exception_serializer = serializer
+        
+    @property
+    def catch_exceptions(self) -> bool:
+        return self._catch_exceptions
+        
+    @catch_exceptions.setter
+    def catch_exceptions(self, value: bool):
+        self._catch_exceptions = value
 
     def __getitem__(self, tool_name: str):
         return self._registry[tool_name]
@@ -116,6 +138,7 @@ class ToolRegistry:
         description: Optional[str] = None,
         strict: Optional[bool] = None,
         response_serializer: Optional[Callable[[Any], str]] = None,
+        exception_serializer: Optional[Callable[[Exception], str]] = None,
     ):
         strict = self._default_strict if strict is None else strict
         sig = inspect.signature(func)
@@ -166,6 +189,7 @@ class ToolRegistry:
             is_async=is_async,
             strict=strict,
             response_serializer=response_serializer,
+            exception_serializer=exception_serializer,
         )
 
         self._registry[tool_name] = tool_info
@@ -183,6 +207,27 @@ class ToolRegistry:
                 py_kwargs[param_name] = json_to_python(arguments[param_name], py_type)
         return py_kwargs
 
+    def _handle_exception(self, exc: Exception, tool_info: ToolInfo) -> str:
+        """Handle an exception from a tool call."""
+        if not self._catch_exceptions:
+            raise exc
+        serializer = tool_info.exception_serializer or self._exception_serializer
+        return serializer(exc)
+        
+    def _create_tool_response(
+        self, 
+        tool_call_id: str, 
+        name: str, 
+        content: str
+    ) -> ToolCallMessageDict:
+        """Create a tool call response."""
+        return {
+            "role": "tool",
+            "tool_call_id": tool_call_id,
+            "name": name,
+            "content": content,
+        }
+        
     def call(self, name: str, **arguments: any):
         tool_info = self[name]
         func = tool_info.function
@@ -198,36 +243,38 @@ class ToolRegistry:
     def tool_call(self, tool_call: ToolCallDict) -> ToolCallMessageDict:
         function = tool_call["function"]
         function_name = function["name"]
-        arguments = json.loads(function["arguments"])
-        call_result = self.call(function_name, **arguments)
-        
-        # Use tool-specific serializer if available, otherwise use registry default
         tool_info = self[function_name]
-        serializer = tool_info.response_serializer or self._response_serializer
+        tool_call_id = tool_call["id"]
         
-        return {
-            "role": "tool",
-            "tool_call_id": tool_call["id"],
-            "name": function_name,
-            "content": serializer(call_result),
-        }
+        try:
+            arguments = json.loads(function["arguments"])
+            call_result = self.call(function_name, **arguments)
+            
+            # Use tool-specific serializer if available, otherwise use registry default
+            serializer = tool_info.response_serializer or self._response_serializer
+            content = serializer(call_result)
+        except Exception as exc:
+            content = self._handle_exception(exc, tool_info)
+            
+        return self._create_tool_response(tool_call_id, function_name, content)
 
     async def atool_call(self, tool_call: ToolCallDict) -> ToolCallMessageDict:
         function = tool_call["function"]
         function_name = function["name"]
-        arguments = json.loads(function["arguments"])
-        call_result = await self.acall(function_name, **arguments)
-        
-        # Use tool-specific serializer if available, otherwise use registry default
         tool_info = self[function_name]
-        serializer = tool_info.response_serializer or self._response_serializer
+        tool_call_id = tool_call["id"]
         
-        return {
-            "role": "tool",
-            "tool_call_id": tool_call["id"],
-            "name": function_name,
-            "content": serializer(call_result),
-        }
+        try:
+            arguments = json.loads(function["arguments"])
+            call_result = await self.acall(function_name, **arguments)
+            
+            # Use tool-specific serializer if available, otherwise use registry default
+            serializer = tool_info.response_serializer or self._response_serializer
+            content = serializer(call_result)
+        except Exception as exc:
+            content = self._handle_exception(exc, tool_info)
+            
+        return self._create_tool_response(tool_call_id, function_name, content)
         
     async def smart_call(self, name: str, **arguments: any):
         """Call a tool regardless of whether it's sync or async.
@@ -280,6 +327,7 @@ class ToolRegistry:
         description: str = None,
         strict: Optional[bool] = None,
         response_serializer: Optional[Callable[[Any], str]] = None,
+        exception_serializer: Optional[Callable[[Exception], str]] = None,
     ):
         def decorator(func: Callable):
             self.register_tool(
@@ -287,7 +335,8 @@ class ToolRegistry:
                 name=name, 
                 description=description, 
                 strict=strict,
-                response_serializer=response_serializer
+                response_serializer=response_serializer,
+                exception_serializer=exception_serializer
             )
             return func
 
