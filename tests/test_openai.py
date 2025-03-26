@@ -177,8 +177,8 @@ def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
 
     for tool_call in message.tool_calls:
         tool_call_dict: ToolCallDict = tool_call.model_dump()
-        tool_response = registry.tool_call(tool_call_dict)
-        messages.append(tool_response)
+        tool_result = registry.tool_call(tool_call_dict)
+        messages.append(tool_result.message)  # Extract the message from ToolCallResult
 
     response = client.chat.completions.create(
         messages=messages, model="gpt-4o-mini", tools=registry.definitions()
@@ -188,9 +188,9 @@ def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
     assert len(tool_calls) == 1
     tool_call_dict: ToolCallDict = tool_calls[0].model_dump()
     email_result = registry.tool_call(tool_call_dict)
-    assert "To: foo@example.com" in email_result["content"]
-    assert "Paris" in email_result["content"]
-    assert "London" in email_result["content"]
+    assert "To: foo@example.com" in email_result.message["content"]
+    assert "Paris" in email_result.message["content"]
+    assert "London" in email_result.message["content"]
 
 
 @pytest.mark.asyncio
@@ -225,12 +225,14 @@ async def test_async_multiple_tools(client: OpenAI) -> None:
     messages.append(response.choices[0].message)
     tool_calls = response.choices[0].message.tool_calls
     assert len(tool_calls) == 2
-    messages += await asyncio.gather(
+    # Get tool call results and extract the messages
+    results = await asyncio.gather(
         *(
             registry.atool_call(tool_call.model_dump())
             for tool_call in tool_calls
         )
     )
+    messages += [result.message for result in results]
     assert len(messages) == 4
     response = client.chat.completions.create(
         messages=messages, model="gpt-4o-mini", tools=registry.definitions()
