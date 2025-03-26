@@ -1,5 +1,6 @@
 import inspect
 import json
+import asyncio
 from typing import (
     Any,
     Callable,
@@ -199,6 +200,47 @@ class ToolRegistry:
             "name": function["name"],
             "content": json.dumps(call_result),
         }
+        
+    async def smart_call(self, name: str, **arguments: any):
+        """Call a tool regardless of whether it's sync or async.
+        
+        This method automatically detects if the tool is synchronous or asynchronous
+        and calls it appropriately. Synchronous tools are executed in a thread pool
+        to prevent blocking the event loop.
+        
+        Args:
+            name: The name of the tool to call
+            **arguments: The arguments to pass to the tool
+            
+        Returns:
+            The result of the tool execution
+        """
+        tool_info = self[name]
+        if tool_info.is_async:
+            return await self.acall(name, **arguments)
+        else:
+            # Run synchronous function in thread pool to prevent blocking
+            return await asyncio.to_thread(self.call, name, **arguments)
+    
+    async def smart_tool_call(self, tool_call: ToolCallDict) -> ToolCallMessageDict:
+        """Handle tool calls for both sync and async tools automatically.
+        
+        This method automatically detects if the tool is synchronous or asynchronous
+        and processes the tool call appropriately. Synchronous tools are executed in
+        a thread pool to prevent blocking the event loop.
+        
+        Args:
+            tool_call: The tool call dictionary in OpenAI format
+            
+        Returns:
+            A tool call message dictionary in OpenAI format
+        """
+        function_name = tool_call["function"]["name"]
+        if self[function_name].is_async:
+            return await self.atool_call(tool_call)
+        else:
+            # Run synchronous function in thread pool to prevent blocking
+            return await asyncio.to_thread(self.tool_call, tool_call)
 
     def definitions(self) -> list[dict[str, Any]]:
         return [tool_info.definition for tool_info in self._registry.values()]
