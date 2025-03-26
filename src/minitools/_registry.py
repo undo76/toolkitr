@@ -43,6 +43,7 @@ class ToolInfo:
     function: Callable
     is_async: bool = False
     strict: bool = False
+    response_serializer: Optional[Callable[[Any], str]] = None
 
     @property
     def definition(self) -> ToolDefinition:
@@ -78,9 +79,22 @@ class ToolCallMessageDict(TypedDict):
 
 
 class ToolRegistry:
-    def __init__(self, strict: bool = False):
+    def __init__(
+        self, 
+        strict: bool = False,
+        response_serializer: Callable[[Any], str] = None
+    ):
         self._registry: dict[str, ToolInfo] = {}
         self._default_strict = strict
+        self._response_serializer = response_serializer or json.dumps
+        
+    @property
+    def response_serializer(self) -> Callable[[Any], str]:
+        return self._response_serializer
+        
+    @response_serializer.setter
+    def response_serializer(self, serializer: Callable[[Any], str]):
+        self._response_serializer = serializer
 
     def __getitem__(self, tool_name: str):
         return self._registry[tool_name]
@@ -101,6 +115,7 @@ class ToolRegistry:
         name: Optional[str] = None,
         description: Optional[str] = None,
         strict: Optional[bool] = None,
+        response_serializer: Optional[Callable[[Any], str]] = None,
     ):
         strict = self._default_strict if strict is None else strict
         sig = inspect.signature(func)
@@ -150,6 +165,7 @@ class ToolRegistry:
             function=func,
             is_async=is_async,
             strict=strict,
+            response_serializer=response_serializer,
         )
 
         self._registry[tool_name] = tool_info
@@ -181,24 +197,36 @@ class ToolRegistry:
 
     def tool_call(self, tool_call: ToolCallDict) -> ToolCallMessageDict:
         function = tool_call["function"]
+        function_name = function["name"]
         arguments = json.loads(function["arguments"])
-        call_result = self.call(function["name"], **arguments)
+        call_result = self.call(function_name, **arguments)
+        
+        # Use tool-specific serializer if available, otherwise use registry default
+        tool_info = self[function_name]
+        serializer = tool_info.response_serializer or self._response_serializer
+        
         return {
             "role": "tool",
             "tool_call_id": tool_call["id"],
-            "name": function["name"],
-            "content": json.dumps(call_result),
+            "name": function_name,
+            "content": serializer(call_result),
         }
 
     async def atool_call(self, tool_call: ToolCallDict) -> ToolCallMessageDict:
         function = tool_call["function"]
+        function_name = function["name"]
         arguments = json.loads(function["arguments"])
-        call_result = await self.acall(function["name"], **arguments)
+        call_result = await self.acall(function_name, **arguments)
+        
+        # Use tool-specific serializer if available, otherwise use registry default
+        tool_info = self[function_name]
+        serializer = tool_info.response_serializer or self._response_serializer
+        
         return {
             "role": "tool",
             "tool_call_id": tool_call["id"],
-            "name": function["name"],
-            "content": json.dumps(call_result),
+            "name": function_name,
+            "content": serializer(call_result),
         }
         
     async def smart_call(self, name: str, **arguments: any):
@@ -251,9 +279,16 @@ class ToolRegistry:
         name: str = None,
         description: str = None,
         strict: Optional[bool] = None,
+        response_serializer: Optional[Callable[[Any], str]] = None,
     ):
         def decorator(func: Callable):
-            self.register_tool(func, name=name, description=description, strict=strict)
+            self.register_tool(
+                func, 
+                name=name, 
+                description=description, 
+                strict=strict,
+                response_serializer=response_serializer
+            )
             return func
 
         return decorator
