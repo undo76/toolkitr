@@ -88,6 +88,28 @@ class ToolCallMessageDict(TypedDict):
     content: str
 
 
+@dataclass
+class ToolCallResult:
+    """Result of a tool call execution."""
+    
+    # Information about the tool that was called
+    tool: ToolInfo
+    
+    # The formatted response message for LLM
+    message: ToolCallMessageDict
+    
+    # The result from the tool function (None if it failed)
+    result: Optional[Any] = None
+    
+    # The exception if the call failed (None if successful)
+    error: Optional[Exception] = None
+    
+    @property
+    def success(self) -> bool:
+        """Returns True if the tool call was successful."""
+        return self.error is None
+
+
 class ToolRegistry:
     def __init__(
         self, 
@@ -250,73 +272,79 @@ class ToolRegistry:
         py_kwargs = self._build_arguments(func, arguments)
         return await func(**py_kwargs)
 
-    def tool_call(self, tool_call: ToolCallDict, return_raw: bool = False) -> Union[ToolCallMessageDict, tuple[Any, ToolCallMessageDict]]:
+    def tool_call(self, tool_call: ToolCallDict) -> ToolCallResult:
         """Execute a synchronous tool call.
         
         Args:
             tool_call: The tool call dictionary in OpenAI format
-            return_raw: If True, returns a tuple of (raw_result, response_dict)
             
         Returns:
-            Either the tool call message dict alone, or a tuple with (raw_result, message_dict)
+            A ToolCallResult object containing the result or error, tool info, and formatted message
         """
         function = tool_call["function"]
         function_name = function["name"]
-        tool_info = self[function_name]
+        tool = self[function_name]
         tool_call_id = tool_call["id"]
         
-        raw_result = None
+        result = None
+        error = None
+        
         try:
             arguments = json.loads(function["arguments"])
-            raw_result = self.call(function_name, **arguments)
+            result = self.call(function_name, **arguments)
             
             # Use tool-specific serializer if available, otherwise use registry default
-            serializer = tool_info.response_serializer or self._response_serializer
-            content = serializer(raw_result)
+            serializer = tool.response_serializer or self._response_serializer
+            content = serializer(result)
         except Exception as exc:
-            raw_result = exc  # Store the exception as the raw result
-            content = self._handle_exception(exc, tool_info)
+            error = exc
+            content = self._handle_exception(exc, tool)
             
-        response = self._create_tool_response(tool_call_id, function_name, content)
+        message = self._create_tool_response(tool_call_id, function_name, content)
         
-        if return_raw:
-            return raw_result, response
-        else:
-            return response
+        return ToolCallResult(
+            result=result,
+            error=error,
+            tool=tool,
+            message=message
+        )
 
-    async def atool_call(self, tool_call: ToolCallDict, return_raw: bool = False) -> Union[ToolCallMessageDict, tuple[Any, ToolCallMessageDict]]:
+    async def atool_call(self, tool_call: ToolCallDict) -> ToolCallResult:
         """Execute an asynchronous tool call.
         
         Args:
             tool_call: The tool call dictionary in OpenAI format
-            return_raw: If True, returns a tuple of (raw_result, response_dict)
             
         Returns:
-            Either the tool call message dict alone, or a tuple with (raw_result, message_dict)
+            A ToolCallResult object containing the result or error, tool info, and formatted message
         """
         function = tool_call["function"]
         function_name = function["name"]
-        tool_info = self[function_name]
+        tool = self[function_name]
         tool_call_id = tool_call["id"]
         
-        raw_result = None
+        result = None
+        error = None
+        
         try:
             arguments = json.loads(function["arguments"])
-            raw_result = await self.acall(function_name, **arguments)
+            result = await self.acall(function_name, **arguments)
             
             # Use tool-specific serializer if available, otherwise use registry default
-            serializer = tool_info.response_serializer or self._response_serializer
-            content = serializer(raw_result)
+            serializer = tool.response_serializer or self._response_serializer
+            content = serializer(result)
         except Exception as exc:
-            raw_result = exc  # Store the exception as the raw result
-            content = self._handle_exception(exc, tool_info)
+            error = exc
+            content = self._handle_exception(exc, tool)
             
-        response = self._create_tool_response(tool_call_id, function_name, content)
+        message = self._create_tool_response(tool_call_id, function_name, content)
         
-        if return_raw:
-            return raw_result, response
-        else:
-            return response
+        return ToolCallResult(
+            result=result,
+            error=error,
+            tool=tool,
+            message=message
+        )
         
     async def smart_call(self, name: str, **arguments: any):
         """Call a tool regardless of whether it's sync or async.
@@ -339,7 +367,7 @@ class ToolRegistry:
             # Run synchronous function in thread pool to prevent blocking
             return await asyncio.to_thread(self.call, name, **arguments)
     
-    async def smart_tool_call(self, tool_call: ToolCallDict, return_raw: bool = False) -> Union[ToolCallMessageDict, tuple[Any, ToolCallMessageDict]]:
+    async def smart_tool_call(self, tool_call: ToolCallDict) -> ToolCallResult:
         """Handle tool calls for both sync and async tools automatically.
         
         This method automatically detects if the tool is synchronous or asynchronous
@@ -348,38 +376,41 @@ class ToolRegistry:
         
         Args:
             tool_call: The tool call dictionary in OpenAI format
-            return_raw: If True, returns a tuple of (raw_result, response_dict)
             
         Returns:
-            Either the tool call message dict alone, or a tuple with (raw_result, message_dict)
+            A ToolCallResult object containing the result or error, tool info, and formatted message
         """
         function_name = tool_call["function"]["name"]
-        tool_info = self[function_name]
+        tool = self[function_name]
         tool_call_id = tool_call["id"]
         
-        raw_result = None
+        result = None
+        error = None
+        
         try:
             arguments = json.loads(tool_call["function"]["arguments"])
             
-            if tool_info.is_async:
-                raw_result = await self.acall(function_name, **arguments)
+            if tool.is_async:
+                result = await self.acall(function_name, **arguments)
             else:
                 # Run synchronous function in thread pool
-                raw_result = await asyncio.to_thread(self.call, function_name, **arguments)
+                result = await asyncio.to_thread(self.call, function_name, **arguments)
             
             # Use tool-specific serializer if available, otherwise use registry default
-            serializer = tool_info.response_serializer or self._response_serializer
-            content = serializer(raw_result)
+            serializer = tool.response_serializer or self._response_serializer
+            content = serializer(result)
         except Exception as exc:
-            raw_result = exc  # Store the exception as the raw result
-            content = self._handle_exception(exc, tool_info)
+            error = exc
+            content = self._handle_exception(exc, tool)
         
-        response = self._create_tool_response(tool_call_id, function_name, content)
+        message = self._create_tool_response(tool_call_id, function_name, content)
         
-        if return_raw:
-            return raw_result, response
-        else:
-            return response
+        return ToolCallResult(
+            result=result,
+            error=error,
+            tool=tool,
+            message=message
+        )
 
     def definitions(self) -> list[dict[str, Any]]:
         return [tool_info.definition for tool_info in self._registry.values()]
