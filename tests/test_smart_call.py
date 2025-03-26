@@ -3,12 +3,12 @@ import asyncio
 from minitools import ToolRegistry
 
 
-def test_function(x: str) -> str:
+def my_function(x: str) -> str:
     """Test synchronous function."""
     return f"Hello, {x}!"
 
 
-async def async_test_function(x: str) -> str:
+async def async_my_function(x: str) -> str:
     """Test asynchronous function."""
     await asyncio.sleep(0.01)  # Simulate async work
     return f"Async Hello, {x}!"
@@ -17,22 +17,22 @@ async def async_test_function(x: str) -> str:
 @pytest.fixture
 def registry():
     registry = ToolRegistry()
-    registry.register_tool(test_function)
-    registry.register_tool(async_test_function)
+    registry.register_tool(my_function)
+    registry.register_tool(async_my_function)
     return registry
 
 
 @pytest.mark.asyncio
 async def test_smart_call_sync(registry):
     """Test smart_call with a synchronous function."""
-    result = await registry.smart_call("test_function", x="World")
+    result = await registry.smart_call("my_function", x="World")
     assert result == "Hello, World!"
 
 
 @pytest.mark.asyncio
 async def test_smart_call_async(registry):
     """Test smart_call with an asynchronous function."""
-    result = await registry.smart_call("async_test_function", x="Async World")
+    result = await registry.smart_call("async_my_function", x="Async World")
     assert result == "Async Hello, Async World!"
 
 
@@ -43,7 +43,7 @@ async def test_smart_tool_call_sync(registry):
         "type": "function",
         "id": "call_123",
         "function": {
-            "name": "test_function",
+            "name": "my_function",
             "arguments": '{"x": "Tool World"}'
         }
     }
@@ -52,7 +52,7 @@ async def test_smart_tool_call_sync(registry):
     
     assert response["role"] == "tool"
     assert response["tool_call_id"] == "call_123"
-    assert response["name"] == "test_function"
+    assert response["name"] == "my_function"
     assert response["content"] == '"Hello, Tool World!"'
 
 
@@ -63,7 +63,7 @@ async def test_smart_tool_call_async(registry):
         "type": "function",
         "id": "call_456",
         "function": {
-            "name": "async_test_function",
+            "name": "async_my_function",
             "arguments": '{"x": "Async Tool World"}'
         }
     }
@@ -72,7 +72,7 @@ async def test_smart_tool_call_async(registry):
     
     assert response["role"] == "tool"
     assert response["tool_call_id"] == "call_456"
-    assert response["name"] == "async_test_function"
+    assert response["name"] == "async_my_function"
     assert response["content"] == '"Async Hello, Async Tool World!"'
 
 
