@@ -12,7 +12,7 @@ from typing import (
     Union, get_origin, get_args,
 )
 from minitools._schema import NoneType
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from minitools._schema import python_type_to_json_schema, json_to_python
 from minitools._serializer import default_exception_serializer
@@ -48,6 +48,12 @@ class ToolInfo:
     title: Optional[str] = None  # Human-friendly name
     response_serializer: Optional[Callable[[Any], str]] = None
     exception_serializer: Optional[Callable[[Exception], str]] = None
+
+    def __post_init__(self):
+        if self.title is None:
+            # Set title to function name if not provided, as it is frozen we need to use object.__setattr__
+            object.__setattr__(self, "title", self.name)
+
 
     @property
     def definition(self) -> ToolDefinition:
