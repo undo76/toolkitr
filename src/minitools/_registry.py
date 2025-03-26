@@ -25,6 +25,7 @@ class ToolFunctionDefinition(TypedDict, total=False):
     description: str
     parameters: dict[str, Any]
     strict: bool
+    title: str  # Human-friendly name
 
 
 class ToolDefinition(TypedDict):
@@ -44,19 +45,26 @@ class ToolInfo:
     function: Callable
     is_async: bool = False
     strict: bool = False
+    title: Optional[str] = None  # Human-friendly name
     response_serializer: Optional[Callable[[Any], str]] = None
     exception_serializer: Optional[Callable[[Exception], str]] = None
 
     @property
     def definition(self) -> ToolDefinition:
+        function_def = {
+            "name": self.name,
+            "description": self.description,
+            "parameters": self.parameters,
+            "strict": self.strict,
+        }
+        
+        # Add title to the definition if it exists
+        if self.title:
+            function_def["title"] = self.title
+            
         return {
             "type": "function",
-            "function": {
-                "name": self.name,
-                "description": self.description,
-                "parameters": self.parameters,
-                "strict": self.strict,
-            },
+            "function": function_def,
         }
 
 
@@ -136,6 +144,7 @@ class ToolRegistry:
         *,
         name: Optional[str] = None,
         description: Optional[str] = None,
+        title: Optional[str] = None,
         strict: Optional[bool] = None,
         response_serializer: Optional[Callable[[Any], str]] = None,
         exception_serializer: Optional[Callable[[Exception], str]] = None,
@@ -188,6 +197,7 @@ class ToolRegistry:
             function=func,
             is_async=is_async,
             strict=strict,
+            title=title,
             response_serializer=response_serializer,
             exception_serializer=exception_serializer,
         )
@@ -379,6 +389,7 @@ class ToolRegistry:
         *,
         name: str = None,
         description: str = None,
+        title: str = None,
         strict: Optional[bool] = None,
         response_serializer: Optional[Callable[[Any], str]] = None,
         exception_serializer: Optional[Callable[[Exception], str]] = None,
@@ -387,7 +398,8 @@ class ToolRegistry:
             self.register_tool(
                 func, 
                 name=name, 
-                description=description, 
+                description=description,
+                title=title,
                 strict=strict,
                 response_serializer=response_serializer,
                 exception_serializer=exception_serializer

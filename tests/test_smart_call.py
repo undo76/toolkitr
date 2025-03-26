@@ -339,6 +339,26 @@ async def test_return_raw_exception():
 
 
 @pytest.mark.asyncio
+async def test_tool_with_title():
+    """Test registering a tool with a title."""
+    registry = ToolRegistry()
+    
+    # Register a tool with a title
+    registry.register_tool(
+        example_function,
+        title="Example Function with Title"
+    )
+    
+    # Check the tool definition
+    definitions = registry.definitions()
+    assert len(definitions) == 1
+    
+    # Verify the title is in the definition
+    tool_def = definitions[0]
+    assert tool_def["function"]["title"] == "Example Function with Title"
+
+
+@pytest.mark.asyncio
 async def test_class_with_smart_call():
     """Test smart_call with class methods."""
 
