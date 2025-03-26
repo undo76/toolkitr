@@ -248,6 +248,97 @@ async def test_no_exception_catching():
 
 
 @pytest.mark.asyncio
+async def test_return_raw_sync():
+    """Test return_raw with a synchronous function."""
+    registry = ToolRegistry()
+    registry.register_tool(example_function)
+    
+    tool_call = {
+        "type": "function",
+        "id": "call_raw_sync",
+        "function": {
+            "name": "example_function",
+            "arguments": '{"x": "Raw Result"}'
+        }
+    }
+    
+    raw_result, response = await registry.smart_tool_call(tool_call, return_raw=True)
+    
+    # Test the raw result
+    assert raw_result == "Hello, Raw Result!"
+    
+    # Test the response
+    assert response["role"] == "tool"
+    assert response["tool_call_id"] == "call_raw_sync"
+    assert response["name"] == "example_function"
+    assert response["content"] == '"Hello, Raw Result!"'
+
+
+@pytest.mark.asyncio
+async def test_return_raw_async():
+    """Test return_raw with an asynchronous function."""
+    registry = ToolRegistry()
+    registry.register_tool(async_example_function)
+    
+    tool_call = {
+        "type": "function",
+        "id": "call_raw_async",
+        "function": {
+            "name": "async_example_function",
+            "arguments": '{"x": "Async Raw Result"}'
+        }
+    }
+    
+    raw_result, response = await registry.smart_tool_call(tool_call, return_raw=True)
+    
+    # Test the raw result
+    assert raw_result == "Async Hello, Async Raw Result!"
+    
+    # Test the response
+    assert response["role"] == "tool"
+    assert response["tool_call_id"] == "call_raw_async"
+    assert response["name"] == "async_example_function"
+    assert response["content"] == '"Async Hello, Async Raw Result!"'
+
+
+@pytest.mark.asyncio
+async def test_return_raw_exception():
+    """Test return_raw with a function that raises an exception."""
+    def failing_function():
+        """This function always fails."""
+        raise ValueError("Raw exception test")
+    
+    registry = ToolRegistry()
+    registry.register_tool(failing_function)
+    
+    tool_call = {
+        "type": "function",
+        "id": "call_raw_exc",
+        "function": {
+            "name": "failing_function",
+            "arguments": '{}'
+        }
+    }
+    
+    raw_result, response = await registry.smart_tool_call(tool_call, return_raw=True)
+    
+    # Test the raw result is the exception
+    assert isinstance(raw_result, ValueError)
+    assert str(raw_result) == "Raw exception test"
+    
+    # Test the response
+    assert response["role"] == "tool"
+    assert response["tool_call_id"] == "call_raw_exc"
+    assert response["name"] == "failing_function"
+    
+    # The content should be a JSON string with error details
+    error_data = json.loads(response["content"])
+    assert "error" in error_data
+    assert error_data["error"]["type"] == "ValueError"
+    assert error_data["error"]["message"] == "Raw exception test"
+
+
+@pytest.mark.asyncio
 async def test_class_with_smart_call():
     """Test smart_call with class methods."""
 
