@@ -1,22 +1,33 @@
-[tool.poetry]
+[project]
 name = "minitools"
-version = "0.1.0"
+version = "0.1.1"
 description = "Tool calling made easy"
-authors = ["Manolo Santos <manolo.santos@gmail.com>"]
+authors = [{ name = "Manolo Santos", email = "manolo.santos@gmail.com" }]
+requires-python = "~=3.11"
 readme = "README.md"
-packages = [{ include = "minitools", from = "src" }]
 
-[tool.poetry.dependencies]
-python = "^3.11"
+[dependency-groups]
+test = [
+    "openai>=1.58.1,<2",
+    "pytest~=8.2",
+    "pytest-asyncio>=0.25.0,<0.26",
+]
 
-[tool.poetry.group.test.dependencies]
-openai = "^1.58.1"
-pytest = "^8.2"
-pytest-asyncio = "^0.25.0"
+[tool.uv]
+default-groups = ["test"]
+
+[tool.hatch.build.targets.sdist]
+include = ["src/minitools"]
+
+[tool.hatch.build.targets.wheel]
+include = ["src/minitools"]
+
+[tool.hatch.build.targets.wheel.sources]
+"src/minitools" = "minitools"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
 [tool.pytest.ini_options]
 asyncio_default_fixture_loop_scope = "function"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
