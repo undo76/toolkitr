@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from minitools._registry import ToolRegistry
+from llmtoolbox._registry import ToolRegistry
 
 
 def test_init():

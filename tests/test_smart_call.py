@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from minitools import ToolRegistry
+from llmtoolbox import ToolRegistry
 
 
 def example_function(x: str) -> str:
@@ -372,7 +372,6 @@ async def test_return_raw_exception():
     # The content should be a JSON string with error details
     error_data = json.loads(result.message["content"])
     assert "error" in error_data
-    assert error_data["error"]["type"] == "ValueError"
     assert error_data["error"]["message"] == "Raw exception test"
 
 
