@@ -1,5 +1,5 @@
 [project]
-name = "llmtoolbox"
+name = "toolkitr"
 version = "0.2.0"
 description = "Tool calling made easy"
 authors = [{ name = "Manolo Santos", email = "manolo.santos@gmail.com" }]
@@ -19,9 +19,9 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/manolo/llmtoolbox"
-"Bug Tracker" = "https://github.com/manolo/llmtoolbox/issues"
-"Documentation" = "https://github.com/manolo/llmtoolbox#readme"
+"Homepage" = "https://github.com/manolo/toolkitr"
+"Bug Tracker" = "https://github.com/manolo/toolkitr/issues"
+"Documentation" = "https://github.com/manolo/toolkitr#readme"
 
 [dependency-groups]
 test = [
@@ -34,13 +34,13 @@ test = [
 default-groups = ["test"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/llmtoolbox"]
+include = ["src/toolkitr"]
 
 [tool.hatch.build.targets.wheel]
-include = ["src/llmtoolbox"]
+include = ["src/toolkitr"]
 
 [tool.hatch.build.targets.wheel.sources]
-"src/llmtoolbox" = "llmtoolbox"
+"src/toolkitr" = "toolkitr"
 
 [build-system]
 requires = ["hatchling"]

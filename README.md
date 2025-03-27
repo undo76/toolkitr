@@ -1,6 +1,6 @@
-# LLM Toolbox
+# ToolKitR
 
-A lightweight Python library for creating and managing function tools that integrate with any LLM provider supporting function calling. LLM Toolbox provides type-safe function registration with automatic JSON Schema generation from Python type hints.
+A lightweight Python library for creating and managing function tools that integrate with any LLM provider supporting function calling. ToolKitR provides type-safe function registration with automatic JSON Schema generation from Python type hints.
 
 ## Features
 
@@ -19,14 +19,14 @@ A lightweight Python library for creating and managing function tools that integ
 ## Installation
 
 ```bash
-pip install llmtoolbox
+pip install toolkitr
 ```
 
 ## Quick Start
 
 ```python
 from typing import Annotated
-from llmtoolbox import ToolRegistry
+from toolkitr import ToolRegistry
 
 # Create a registry
 registry = ToolRegistry()
