@@ -1,5 +1,5 @@
 [project]
-name = "minitools"
+name = "llmtoolbox"
 version = "0.2.0"
 description = "Tool calling made easy"
 authors = [{ name = "Manolo Santos", email = "manolo.santos@gmail.com" }]
@@ -19,9 +19,9 @@ dependencies = [
 ]
 
 [project.urls]
-"Homepage" = "https://github.com/manolo/minitools"
-"Bug Tracker" = "https://github.com/manolo/minitools/issues"
-"Documentation" = "https://github.com/manolo/minitools#readme"
+"Homepage" = "https://github.com/manolo/llmtoolbox"
+"Bug Tracker" = "https://github.com/manolo/llmtoolbox/issues"
+"Documentation" = "https://github.com/manolo/llmtoolbox#readme"
 
 [dependency-groups]
 test = [
@@ -34,13 +34,13 @@ test = [
 default-groups = ["test"]
 
 [tool.hatch.build.targets.sdist]
-include = ["src/minitools"]
+include = ["src/llmtoolbox"]
 
 [tool.hatch.build.targets.wheel]
-include = ["src/minitools"]
+include = ["src/llmtoolbox"]
 
 [tool.hatch.build.targets.wheel.sources]
-"src/minitools" = "minitools"
+"src/llmtoolbox" = "llmtoolbox"
 
 [build-system]
 requires = ["hatchling"]
