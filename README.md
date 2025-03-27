@@ -325,11 +325,11 @@ When these tools are presented to the LLM:
 
 ### Strict Mode
 
-Control whether your tools should be forgiving or strict about unexpected parameters:
+Control whether parameters are mandatory or optional in the generated schema, as defined by OpenAI's function calling specification:
 
 ```python
 # Global registry setting for parameter validation
-registry = ToolRegistry(strict=True)  # Reject any calls with extra parameters
+registry = ToolRegistry(strict=True)  # All parameters are required, even those with defaults
 
 # Specific tools can override the global setting
 @registry.tool(strict=False)
@@ -338,22 +338,21 @@ def search_database(
     limit: int = 10,
     # Other documented parameters...
 ) -> list[str]:
-    """Flexible search tool that can accept various filtering parameters.
+    """Flexible search tool where only explicit parameters are required.
     
-    This tool intentionally allows additional parameters for advanced filtering.
+    With strict=False, parameters with default values become optional in the schema.
     """
-    # In a real implementation, you might use **kwargs to handle dynamic filters
     return [f"Result {i} for '{query}'" for i in range(limit)]
 
-@registry.tool(strict=True)  # Enforce strict parameter checking
+@registry.tool(strict=True)  # Every parameter is required in the schema
 def critical_operation(resource_id: str, action: str) -> str:
-    """Performs critical operations that require strict parameter validation."""
+    """Performs critical operations where all parameters must be explicitly provided."""
     return f"Performed {action} on {resource_id}"
 ```
 
 When to use each mode:
-- **Strict mode (True)**: For security-sensitive operations, financial transactions, or when parameter validation is critical
-- **Flexible mode (False)**: For search interfaces, when the LLM might try to provide helpful additional parameters, or when backward compatibility is needed
+- **Strict mode (True)**: When you want to ensure the LLM provides all parameters explicitly, even those with default values
+- **Flexible mode (False)**: When you want parameters with defaults to be optional in the schema, giving the LLM more flexibility
 
 ## 🧠 Complex Types
 
