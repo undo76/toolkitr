@@ -1,20 +1,20 @@
 # 🧰 Toolkitr
 
-A lightweight Python library for creating and managing function tools that integrate with any LLM provider supporting function calling. Toolkitr provides type-safe function registration with automatic JSON Schema generation from Python type hints.
+A lightweight Python library for creating and managing function tools that integrate with any LLM provider supporting function calling. Toolkitr provides type-safe function registration with automatic JSON Schema generation from Python type hints, enabling seamless integration between your Python functions and Large Language Models.
 
 ## ✨ Features
 
-- Type-safe function tool registry system
-- Automatic JSON Schema generation from Python type annotations
-- Support for both synchronous and asynchronous tools
-- Custom response serialization for both success and error responses
-- Configurable exception handling
-- Support for complex Python types:
-  - Enums, Dataclasses, TypedDicts, NamedTuples
-  - Lists, Tuples, and Dictionaries
-  - Optional and Union types
-  - Literal types
-  - Annotated types with descriptions
+- **Type-safe function registry**: Build reliable AI applications with runtime type validation and conversion
+- **Zero-config schema generation**: Automatically generate JSON Schema from Python type annotations with no additional configuration needed
+- **Modern async support**: Seamlessly work with both synchronous and asynchronous functions through a unified API
+- **Flexible serialization**: Customize how function results and errors are presented to your LLM with powerful serializers
+- **Robust error handling**: Control exactly how exceptions are processed, formatted, and presented to the LLM
+- **Rich type system support**:
+  - Enums, Dataclasses, TypedDicts, NamedTuples for structured data
+  - Lists, Tuples, and Dictionaries for collections
+  - Optional and Union types for flexible inputs
+  - Literal types for constrained values
+  - Annotated types with human-readable descriptions
 
 ## 📦 Installation
 
@@ -24,29 +24,37 @@ pip install toolkitr
 
 ## 🚀 Quick Start
 
-The following example shows how to create a basic tool registry, register a function, and execute it:
+Getting started with Toolkitr is simple. The following example demonstrates how to create a tool registry, register a function with rich type information, and execute it in different contexts:
 
 ```python
 from typing import Annotated
 from toolkitr import ToolRegistry
 
-# Create a registry
+# Create a registry - the central hub for all your tools
 registry = ToolRegistry()
 
-# Register a function as a tool
+# Register a function as a tool with automatic documentation
 @registry.tool()
 def get_weather(location: Annotated[str, "The location to get weather for"]) -> str:
     """Get the weather for a location."""
-    return f"The weather in {location} is sunny."
+    # In a real app, this would call a weather API
+    return f"The weather in {location} is sunny with a high of 72°F."
 
-# Get tool definitions for an LLM provider
+# --- INTEGRATION WITH LLM PROVIDERS ---
+
+# Get tool definitions ready to send to any LLM provider (OpenAI, Anthropic, etc.)
 tool_definitions = registry.definitions()
+# This generates a properly formatted JSON Schema that LLMs understand
 
-# Execute a tool directly
+# --- DIRECT EXECUTION ---
+
+# Call the tool directly from your code
 result = registry.call("get_weather", location="London")
-print(result)  # "The weather in London is sunny."
+print(result)  # "The weather in London is sunny with a high of 72°F."
 
-# Execute a tool call from an LLM (similar to what an LLM provider would send)
+# --- HANDLING LLM TOOL CALLS ---
+
+# Process a tool call exactly as it would come from an LLM
 tool_result = registry.tool_call({
     "id": "call_123",
     "type": "function",
@@ -56,35 +64,36 @@ tool_result = registry.tool_call({
     }
 })
 
-# Access components of the tool result
-print(tool_result.result)       # The raw function result
-print(tool_result.message)      # The formatted message for the LLM
-print(tool_result.success)      # True if call succeeded, False if it raised an exception
+# Access the rich result object with everything you need
+print(tool_result.result)       # The raw function return value
+print(tool_result.message)      # The formatted message ready to send back to the LLM
+print(tool_result.success)      # True if the call succeeded, False if it raised an exception
 print(tool_result.tool.name)    # The name of the tool that was called
 ```
 
 ## ⚡ Working with Async Tools
 
-Toolkitr seamlessly supports both synchronous and asynchronous functions. The `smart_call` method automatically handles both types:
+Modern Python applications often use asynchronous programming for better performance and resource utilization. Toolkitr provides first-class support for async functions while maintaining a clean, consistent API:
 
 ```python
 import asyncio
 
-# Define an async tool
+# Define an async tool that could be calling an external API
 async def async_weather(location: str) -> str:
-    await asyncio.sleep(0.1)  # Simulate API call
-    return f"Weather in {location} is cloudy."
+    # In a real app, this would be an async API call
+    await asyncio.sleep(0.1)  # Simulate network latency
+    return f"Weather in {location} is cloudy with a chance of rain."
 
-# Register and use it
+# Register the async function just like a synchronous one
 registry.register_tool(async_weather)
 
-# Use the unified interface for both sync and async tools
+# Use the unified interface that works with BOTH sync and async functions
 async def main():
-    # Works with both sync and async functions
+    # The smart_call method automatically detects function type and handles it appropriately
     sync_result = await registry.smart_call("get_weather", location="Paris")
     async_result = await registry.smart_call("async_weather", location="Tokyo")
     
-    # Handle OpenAI-style tool calls
+    # Similarly for OpenAI-style tool calls - works with both sync and async
     tool_result = await registry.smart_tool_call({
         "id": "call_456",
         "type": "function",
@@ -94,156 +103,365 @@ async def main():
         }
     })
     
-    print(tool_result.result)  # "Weather in Berlin is cloudy."
+    print(tool_result.result)  # "Weather in Berlin is cloudy with a chance of rain."
+
+# Run in your async application
+asyncio.run(main())
 ```
+
+This means you can:
+- Mix sync and async functions in the same registry
+- Use a consistent API regardless of function type
+- Integrate with async frameworks like FastAPI
+- Make external API calls efficiently
 
 ## 🛡️ Error Handling
 
-Toolkitr provides robust error handling capabilities, allowing you to customize how exceptions are reported:
+In real-world applications, errors are inevitable. Toolkitr provides comprehensive error handling that balances user experience, security, and debuggability:
 
 ```python
-# Configure error handling
+import json
+
+# Configure error handling at registry creation
 registry = ToolRegistry(
-    # Custom exception serializer
+    # Define how exceptions should be presented to the LLM
     exception_serializer=lambda exc: json.dumps({
         "error": {
             "type": type(exc).__name__,
-            "message": str(exc)
+            "message": str(exc),
+            "severity": "error" if isinstance(exc, ValueError) else "warning"
         }
-    }),
-    # Set to False to let exceptions propagate
-    catch_exceptions=True
+    }, indent=2),
+    # Control whether exceptions should be caught or propagated
+    catch_exceptions=True  # Set to False in development for easier debugging
 )
 
 @registry.tool()
-def risky_function(input: str) -> str:
-    if input == "fail":
-        raise ValueError("Intentional failure")
-    return f"Success: {input}"
+def database_query(query_params: str) -> str:
+    """Query the database with the given parameters."""
+    # Simulate potential errors in real applications
+    if query_params == "invalid":
+        raise ValueError("Invalid query parameters")
+    elif query_params == "unauthorized":
+        raise PermissionError("User not authorized to access this data")
+    return f"Query results for: {query_params}"
 
-# When a tool raises an exception, tool_result has:
-# - tool_result.error: The exception that was raised
-# - tool_result.result: None
-# - tool_result.success: False
-# - tool_result.message: Contains the serialized error
+# When you handle a tool call with an error:
+result = registry.tool_call({
+    "id": "db_query_123",
+    "type": "function",
+    "function": {
+        "name": "database_query",
+        "arguments": '{"query_params": "invalid"}'
+    }
+})
+
+# You get a comprehensive result object:
+print(result.success)      # False - indicating there was an error
+print(result.error)        # The actual ValueError exception
+print(result.result)       # None since the function didn't complete
+print(result.message)      # LLM-friendly formatted error message with your custom serialization
 ```
+
+Benefits:
+- Prevent sensitive error details from leaking to the LLM
+- Provide helpful error messages to guide the LLM's next actions
+- Maintain full control over how errors are processed
+- Excellent for debugging and production use cases
 
 ## 🤖 OpenAI Integration
 
-Integrating with OpenAI is straightforward. Here's how to use your Toolkitr tools with OpenAI's chat completions:
+Toolkitr is designed to work seamlessly with OpenAI's function calling capabilities. Here's a complete example showing how to integrate your tools with OpenAI chat completions:
 
 ```python
 from openai import OpenAI
+from toolkitr import ToolRegistry
 
+# Set up your tool registry
+registry = ToolRegistry()
+
+@registry.tool(title="Get Current Weather")
+def get_weather(location: str, units: str = "celsius") -> str:
+    """Get the current weather in a given location"""
+    # In a real app, call a weather API here
+    return f"The weather in {location} is 22°{units[0].upper()}."
+
+@registry.tool(title="Get Restaurant Recommendations")
+def get_restaurants(cuisine: str, location: str, price_range: str = "moderate") -> str:
+    """Find restaurants matching the requested criteria"""
+    return f"Here are 3 {price_range} {cuisine} restaurants in {location}: [restaurant list]"
+
+# Set up OpenAI client
 client = OpenAI()
 messages = [
-    {"role": "user", "content": "What's the weather in London?"}
+    {"role": "user", "content": "What's the weather in London? Also, recommend some Italian restaurants there."}
 ]
 
 # Create chat completion with tools
 response = client.chat.completions.create(
     messages=messages,
-    model="gpt-4",
-    tools=registry.definitions()
+    model="gpt-4-turbo",
+    tools=registry.definitions()  # This automatically formats your tools for OpenAI
 )
 
-# Handle tool calls
+# Handle tool calls and continue the conversation
 message = response.choices[0].message
-messages.append(message)
+messages.append(message.model_dump())  # Add assistant's response to conversation
 
-for tool_call in message.tool_calls:
-    # Get the tool result
-    tool_result = registry.tool_call(tool_call.model_dump())
-    # Add just the message to the conversation
-    messages.append(tool_result.message)
+if message.tool_calls:
+    # Process each tool call the model requested
+    for tool_call in message.tool_calls:
+        # Execute the tool and get results
+        tool_result = registry.tool_call(tool_call.model_dump())
+        
+        # Add the tool response to the conversation
+        messages.append(tool_result.message)  # Adds as a role="tool" message
+    
+    # Get the final answer incorporating the tool results
+    final_response = client.chat.completions.create(
+        messages=messages,
+        model="gpt-4-turbo"
+    )
+    
+    print(final_response.choices[0].message.content)
 ```
+
+This integration offers:
+- Clean separation between tool logic and LLM interaction
+- Type validation for all parameters
+- Automatic conversion between Python and JSON data types
+- Streamlined error handling with intelligent responses
 
 ## 🧩 Advanced Features
 
 ### Custom Serializers
 
-You can customize how tool results are serialized, either at the registry level or for individual tools:
+Control exactly how your function results are presented to the LLM with custom serializers:
 
 ```python
-# Registry-level serializer
-registry = ToolRegistry(response_serializer=lambda result: json.dumps(result, indent=2))
+import json
+from datetime import datetime
+from dataclasses import dataclass
 
-# Per-tool serializer
-@registry.tool(response_serializer=lambda x: f'"Custom: {x}"')
-def special_tool(input: str) -> str:
-    return input.upper()
+@dataclass
+class WeatherReport:
+    location: str
+    temperature: float
+    conditions: str
+    humidity: int
+    updated_at: datetime
+
+# Registry-level serializer for all tools
+def global_serializer(result):
+    """Format all results with a timestamp and structured format"""
+    if isinstance(result, dict) or hasattr(result, "__dict__"):
+        # Convert to JSON with proper formatting
+        if hasattr(result, "__dict__"):
+            result = result.__dict__
+        return json.dumps(result, indent=2, default=str)
+    return str(result)
+
+registry = ToolRegistry(response_serializer=global_serializer)
+
+# Per-tool custom serializer for special formatting needs
+def weather_serializer(report: WeatherReport) -> str:
+    """Format weather data in a human-readable format"""
+    return f"""Weather Report for {report.location}:
+- Temperature: {report.temperature}°C
+- Conditions: {report.conditions}
+- Humidity: {report.humidity}%
+- Last Updated: {report.updated_at.strftime('%H:%M:%S')}"""
+
+@registry.tool(response_serializer=weather_serializer)
+def get_detailed_weather(location: str) -> WeatherReport:
+    """Get detailed weather information for a location."""
+    # In real code, this would call a weather API
+    return WeatherReport(
+        location=location,
+        temperature=22.5,
+        conditions="Partly Cloudy",
+        humidity=65,
+        updated_at=datetime.now()
+    )
+
+# The result will be formatted using the custom serializer
+# when returned to the LLM, making it more readable and useful
 ```
+
+Benefits:
+- Format complex objects in LLM-friendly ways
+- Handle custom data types and date/time information properly
+- Present information in the most useful format for the LLM to process
+- Different serialization strategies for different tools
 
 ### Human-friendly Tool Titles
 
-Make your tools more user-friendly by providing clear titles that will appear in the LLM interface:
+Improve the LLM's understanding and selection of tools by providing clear, descriptive titles:
 
 ```python
-@registry.tool(title="Get Weather Information")
+# Tools with explicit, human-friendly titles improve LLM understanding
+@registry.tool(
+    title="Get Current Weather Conditions", 
+    description="Provides real-time weather data for any city worldwide"
+)
 def get_weather(location: str) -> str:
-    """Get the weather for a location."""
-    return f"The weather in {location} is sunny."
+    """Get the current weather for a location."""
+    return f"The weather in {location} is sunny with a high of 72°F."
+
+@registry.tool(
+    title="Search Knowledge Base Articles",
+    description="Find help articles related to a specific topic or question"
+)
+def search_kb(query: str, max_results: int = 3) -> list[str]:
+    """Search the knowledge base for articles matching the query."""
+    # This would call your search API in practice
+    return [f"Article {i}: Results for '{query}'" for i in range(max_results)]
 ```
+
+When these tools are presented to the LLM:
+- The titles appear in the LLM's interface, making it easier for the LLM to choose the right tool
+- For UI-based systems (like ChatGPT), users see these friendly titles
+- More descriptive titles lead to better tool selection by the model
 
 ### Strict Mode
 
-Control whether additional parameters are allowed or rejected:
+Control whether your tools should be forgiving or strict about unexpected parameters:
 
 ```python
-# Enable strict mode to prevent additional parameters
-registry = ToolRegistry(strict=True)
+# Global registry setting for parameter validation
+registry = ToolRegistry(strict=True)  # Reject any calls with extra parameters
 
-# Override for specific tools
+# Specific tools can override the global setting
 @registry.tool(strict=False)
-def flexible_tool(param: str) -> str:
-    """This tool allows additional parameters."""
-    return f"Got {param}"
+def search_database(
+    query: str, 
+    limit: int = 10,
+    # Other documented parameters...
+) -> list[str]:
+    """Flexible search tool that can accept various filtering parameters.
+    
+    This tool intentionally allows additional parameters for advanced filtering.
+    """
+    # In a real implementation, you might use **kwargs to handle dynamic filters
+    return [f"Result {i} for '{query}'" for i in range(limit)]
+
+@registry.tool(strict=True)  # Enforce strict parameter checking
+def critical_operation(resource_id: str, action: str) -> str:
+    """Performs critical operations that require strict parameter validation."""
+    return f"Performed {action} on {resource_id}"
 ```
+
+When to use each mode:
+- **Strict mode (True)**: For security-sensitive operations, financial transactions, or when parameter validation is critical
+- **Flexible mode (False)**: For search interfaces, when the LLM might try to provide helpful additional parameters, or when backward compatibility is needed
 
 ## 🧠 Complex Types
 
-Toolkitr supports a wide range of Python data structures, automatically converting them to and from JSON:
+Toolkitr excels at handling complex Python data types, automatically converting between Python objects and JSON. This enables you to create tools with rich, structured inputs and outputs:
 
 ```python
 from enum import Enum
 from dataclasses import dataclass
-from typing import Optional, Literal, TypedDict, NamedTuple
+from typing import Optional, Literal, TypedDict, NamedTuple, List, Dict
+from datetime import datetime
 
-class Priority(Enum):
+# --- RICH TYPE DEFINITIONS ---
+
+class TaskPriority(Enum):
     LOW = "low"
+    MEDIUM = "medium"
     HIGH = "high"
+    CRITICAL = "critical"
 
 @dataclass
-class User:
+class UserProfile:
     name: str
-    age: int
+    email: str
+    role: str
+    department: Optional[str] = None
+    joined_date: Optional[datetime] = None
 
-class Options(TypedDict):
-    tags: list[str]
-    due_date: Optional[str]
+class TaskAttachments(TypedDict, total=False):
+    files: List[str]
+    links: List[str]
+    notes: str
 
-class Point(NamedTuple):
-    x: float
-    y: float
+class GeoCoordinate(NamedTuple):
+    latitude: float
+    longitude: float
+    altitude: Optional[float] = None
 
-@registry.tool()
+# --- TOOL WITH COMPLEX TYPES ---
+
+@registry.tool(title="Create New Task")
 def create_task(
-    user: User,
-    priority: Priority,
-    location: Point,
-    options: Options,
-    status: Literal["pending", "done"] = "pending"
-) -> str:
-    """Create a new task."""
-    return f"Created task for {user.name} with {priority.value} priority"
+    assignee: UserProfile,
+    priority: TaskPriority,
+    location: Optional[GeoCoordinate] = None,
+    attachments: Optional[TaskAttachments] = None,
+    status: Literal["draft", "assigned", "in_progress", "review", "completed"] = "assigned",
+    tags: List[str] = [],
+    due_date: Optional[datetime] = None
+) -> Dict[str, any]:
+    """Create a new task in the project management system."""
+    
+    # In a real implementation, this would create a task in your system
+    task_id = "TASK-123"
+    
+    # Return rich structured data
+    return {
+        "task_id": task_id,
+        "summary": f"Task assigned to {assignee.name} with {priority.value} priority",
+        "status": status,
+        "details": {
+            "assignee": assignee.__dict__,
+            "due_date": due_date.isoformat() if due_date else None,
+            "has_attachments": bool(attachments),
+            "location_specified": location is not None,
+            "tag_count": len(tags)
+        }
+    }
+
+# --- LLM INTERACTION ---
+
+# When used with an LLM, Toolkitr will:
+# 1. Generate proper JSON Schema for all these complex types
+# 2. Validate incoming JSON against these types
+# 3. Convert JSON to proper Python objects (enums, dataclasses, etc.)
+# 4. Execute your function with the correct Python types
+# 5. Convert the result back to JSON for the LLM
 ```
 
-## ⚠️ Limitations
+Key benefits:
+- Write truly Pythonic code with native data structures
+- No need to manually serialize/deserialize between JSON and Python objects
+- Strong type safety with proper validation
+- Support for nested and recursive data structures
+- Clean separation between your business logic and LLM integration
 
-When using tuples with LLM providers, prefer:
-- `NamedTuple` for fixed-length sequences with named fields
-- `List` for variable-length sequences
-- `dataclass` for structured data
+## ⚠️ Limitations and Best Practices
+
+To get the most out of Toolkitr, keep these recommendations in mind:
+
+- **Tuple handling**: When working with LLM providers:
+  - Prefer `NamedTuple` for fixed-length sequences with named fields
+  - Use `List` for variable-length sequences
+  - Consider `dataclass` for structured data instead of regular tuples
+
+- **Function design for LLMs**:
+  - Use clear, descriptive parameter names
+  - Add `Annotated` types with descriptions for better LLM understanding
+  - Keep function purposes focused and singular
+  - Provide reasonable defaults when possible
+
+- **Error handling**:
+  - Consider what information is safe to expose to the LLM in error messages
+  - Use custom exception serializers for sensitive operations
+  - During development, set `catch_exceptions=False` for easier debugging
+
+- **Performance considerations**:
+  - For high-frequency API services, consider caching tool definitions
+  - Use async tools for I/O-bound operations
 
 ## License
 
