@@ -3,7 +3,7 @@ import json
 
 import pytest
 
-from llmtoolbox import ToolRegistry
+from toolkitr import ToolRegistry
 
 
 def example_function(x: str) -> str:

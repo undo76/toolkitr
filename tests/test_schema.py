@@ -13,7 +13,7 @@ from typing import (
 )
 from dataclasses import dataclass
 
-from llmtoolbox._schema import python_type_to_json_schema, json_to_python
+from toolkitr._schema import python_type_to_json_schema, json_to_python
 
 
 # Test fixtures

@@ -11,11 +11,11 @@ from typing import (
     Iterator, Coroutine,
     Union, get_origin, get_args,
 )
-from llmtoolbox._schema import NoneType
+from toolkitr._schema import NoneType
 from dataclasses import dataclass, field
 
-from llmtoolbox._schema import python_type_to_json_schema, json_to_python
-from llmtoolbox._serializer import default_exception_serializer
+from toolkitr._schema import python_type_to_json_schema, json_to_python
+from toolkitr._serializer import default_exception_serializer
 
 
 class ToolFunctionDefinition(TypedDict, total=False):

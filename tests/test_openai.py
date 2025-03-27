@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import pytest
 from openai import OpenAI
-from llmtoolbox._registry import ToolRegistry, ToolCallDict
+from toolkitr._registry import ToolRegistry, ToolCallDict
 
 
 class Priority(Enum):
