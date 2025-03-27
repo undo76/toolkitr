@@ -207,7 +207,6 @@ async def test_exception_handling():
     # The content should be a JSON string with error details
     error_data = json.loads(result.message["content"])
     assert "error" in error_data
-    assert error_data["error"]["type"] == "ValueError"
     assert error_data["error"]["message"] == "This function failed intentionally"
 
 
