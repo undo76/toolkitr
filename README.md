@@ -231,4 +231,4 @@ When using tuples with LLM providers, prefer:
 
 ## License
 
-Pending
+MIT License. See [LICENSE](LICENSE) file for details.
