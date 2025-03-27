@@ -1,6 +1,6 @@
 [project]
 name = "toolkitr"
-version = "0.3.0"
+version = "0.3.1"
 description = "Tool calling made easy"
 authors = [{ name = "Manolo Santos", email = "manolo.santos@gmail.com" }]
 requires-python = "~=3.11"
