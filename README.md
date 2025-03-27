@@ -38,7 +38,7 @@ registry = ToolRegistry()
 def get_weather(location: Annotated[str, "The location to get weather for"]) -> str:
     """Get the weather for a location."""
     # In a real app, this would call a weather API
-    return f"The weather in {location} is sunny with a high of 72°F."
+    return f"The weather in {location} is sunny with a high of 22°C."
 
 # --- INTEGRATION WITH LLM PROVIDERS ---
 
@@ -82,7 +82,7 @@ import asyncio
 async def async_weather(location: str) -> str:
     # In a real app, this would be an async API call
     await asyncio.sleep(0.1)  # Simulate network latency
-    return f"Weather in {location} is cloudy with a chance of rain."
+    return f"Weather in {location} is cloudy with a chance of rain. Current temperature is 18°C."
 
 # Register the async function just like a synchronous one
 registry.register_tool(async_weather)
@@ -184,7 +184,7 @@ registry = ToolRegistry()
 def get_weather(location: str, units: str = "celsius") -> str:
     """Get the current weather in a given location"""
     # In a real app, call a weather API here
-    return f"The weather in {location} is 22°{units[0].upper()}."
+    return f"The weather in {location} is {22 if units.startswith('c') else 295}°{units[0].upper()}."
 
 @registry.tool(title="Get Restaurant Recommendations")
 def get_restaurants(cuisine: str, location: str, price_range: str = "moderate") -> str:
@@ -278,9 +278,9 @@ def get_detailed_weather(location: str) -> WeatherReport:
     # In real code, this would call a weather API
     return WeatherReport(
         location=location,
-        temperature=22.5,
+        temperature=22.5,  # Celsius
         conditions="Partly Cloudy",
-        humidity=65,
+        humidity=65,  # Percentage
         updated_at=datetime.now()
     )
 
@@ -306,7 +306,7 @@ Improve the LLM's understanding and selection of tools by providing clear, descr
 )
 def get_weather(location: str) -> str:
     """Get the current weather for a location."""
-    return f"The weather in {location} is sunny with a high of 72°F."
+    return f"The weather in {location} is sunny with a high of 22°C."
 
 @registry.tool(
     title="Search Knowledge Base Articles",
