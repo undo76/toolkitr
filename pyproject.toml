@@ -5,6 +5,23 @@ description = "Tool calling made easy"
 authors = [{ name = "Manolo Santos", email = "manolo.santos@gmail.com" }]
 requires-python = "~=3.11"
 readme = "README.md"
+license = {text = "MIT"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "typing-extensions>=4.0.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/manolo/minitools"
+"Bug Tracker" = "https://github.com/manolo/minitools/issues"
+"Documentation" = "https://github.com/manolo/minitools#readme"
 
 [dependency-groups]
 test = [
