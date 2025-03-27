@@ -1,8 +1,8 @@
-# ToolKitR
+# 🧰 Toolkitr
 
-A lightweight Python library for creating and managing function tools that integrate with any LLM provider supporting function calling. ToolKitR provides type-safe function registration with automatic JSON Schema generation from Python type hints.
+A lightweight Python library for creating and managing function tools that integrate with any LLM provider supporting function calling. Toolkitr provides type-safe function registration with automatic JSON Schema generation from Python type hints.
 
-## Features
+## ✨ Features
 
 - Type-safe function tool registry system
 - Automatic JSON Schema generation from Python type annotations
@@ -16,13 +16,15 @@ A lightweight Python library for creating and managing function tools that integ
   - Literal types
   - Annotated types with descriptions
 
-## Installation
+## 📦 Installation
 
 ```bash
 pip install toolkitr
 ```
 
-## Quick Start
+## 🚀 Quick Start
+
+The following example shows how to create a basic tool registry, register a function, and execute it:
 
 ```python
 from typing import Annotated
@@ -44,7 +46,7 @@ tool_definitions = registry.definitions()
 result = registry.call("get_weather", location="London")
 print(result)  # "The weather in London is sunny."
 
-# Execute a tool call from an LLM
+# Execute a tool call from an LLM (similar to what an LLM provider would send)
 tool_result = registry.tool_call({
     "id": "call_123",
     "type": "function",
@@ -61,7 +63,9 @@ print(tool_result.success)      # True if call succeeded, False if it raised an 
 print(tool_result.tool.name)    # The name of the tool that was called
 ```
 
-## Working with Async Tools
+## ⚡ Working with Async Tools
+
+Toolkitr seamlessly supports both synchronous and asynchronous functions. The `smart_call` method automatically handles both types:
 
 ```python
 import asyncio
@@ -93,7 +97,9 @@ async def main():
     print(tool_result.result)  # "Weather in Berlin is cloudy."
 ```
 
-## Error Handling
+## 🛡️ Error Handling
+
+Toolkitr provides robust error handling capabilities, allowing you to customize how exceptions are reported:
 
 ```python
 # Configure error handling
@@ -122,7 +128,9 @@ def risky_function(input: str) -> str:
 # - tool_result.message: Contains the serialized error
 ```
 
-## OpenAI Integration
+## 🤖 OpenAI Integration
+
+Integrating with OpenAI is straightforward. Here's how to use your Toolkitr tools with OpenAI's chat completions:
 
 ```python
 from openai import OpenAI
@@ -150,9 +158,11 @@ for tool_call in message.tool_calls:
     messages.append(tool_result.message)
 ```
 
-## Advanced Features
+## 🧩 Advanced Features
 
 ### Custom Serializers
+
+You can customize how tool results are serialized, either at the registry level or for individual tools:
 
 ```python
 # Registry-level serializer
@@ -166,6 +176,8 @@ def special_tool(input: str) -> str:
 
 ### Human-friendly Tool Titles
 
+Make your tools more user-friendly by providing clear titles that will appear in the LLM interface:
+
 ```python
 @registry.tool(title="Get Weather Information")
 def get_weather(location: str) -> str:
@@ -174,6 +186,8 @@ def get_weather(location: str) -> str:
 ```
 
 ### Strict Mode
+
+Control whether additional parameters are allowed or rejected:
 
 ```python
 # Enable strict mode to prevent additional parameters
@@ -186,7 +200,9 @@ def flexible_tool(param: str) -> str:
     return f"Got {param}"
 ```
 
-## Complex Types
+## 🧠 Complex Types
+
+Toolkitr supports a wide range of Python data structures, automatically converting them to and from JSON:
 
 ```python
 from enum import Enum
@@ -222,7 +238,7 @@ def create_task(
     return f"Created task for {user.name} with {priority.value} priority"
 ```
 
-## Limitations
+## ⚠️ Limitations
 
 When using tuples with LLM providers, prefer:
 - `NamedTuple` for fixed-length sequences with named fields
