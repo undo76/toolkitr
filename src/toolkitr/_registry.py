@@ -1,20 +1,21 @@
+import asyncio
 import inspect
 import json
-import asyncio
+from dataclasses import dataclass
 from typing import (
     Any,
     Callable,
-    get_type_hints,
-    Optional,
+    Iterator,
     Literal,
+    Optional,
     TypedDict,
-    Iterator, Coroutine,
-    Union, get_origin, get_args,
+    Union,
+    get_args,
+    get_origin,
+    get_type_hints,
 )
-from toolkitr._schema import NoneType
-from dataclasses import dataclass, field
 
-from toolkitr._schema import python_type_to_json_schema, json_to_python
+from toolkitr._schema import NoneType, json_to_python, python_type_to_json_schema
 from toolkitr._serializer import default_exception_serializer
 
 
@@ -25,7 +26,7 @@ class ToolFunctionDefinition(TypedDict, total=False):
     description: str
     parameters: dict[str, Any]
     strict: bool
-    title: str  # Human-friendly name
+    title: str | None  # Human-friendly name
 
 
 class ToolDefinition(TypedDict):
@@ -54,24 +55,27 @@ class ToolInfo:
             # Set title to function name if not provided, as it is frozen we need to use object.__setattr__
             object.__setattr__(self, "title", self.name)
 
-
     @property
     def definition(self) -> ToolDefinition:
-        function_def = {
-            "name": self.name,
-            "description": self.description,
-            "parameters": self.parameters,
-            "strict": self.strict,
-        }
-        
-        # Add title to the definition if it exists
+        function_def = ToolFunctionDefinition(
+            {
+                "name": self.name,
+                "description": self.description,
+                "parameters": self.parameters,
+                "strict": self.strict,
+            }
+        )
+
+        # Add title to the definition if it exists (Not official in OpenAI API)
         if self.title:
             function_def["title"] = self.title
-            
-        return {
-            "type": "function",
-            "function": function_def,
-        }
+
+        return ToolDefinition(
+            {
+                "type": "function",
+                "function": function_def,
+            }
+        )
 
 
 class ToolCallFunctionDict(TypedDict):
@@ -97,19 +101,19 @@ class ToolCallMessageDict(TypedDict):
 @dataclass
 class ToolCallResult:
     """Result of a tool call execution."""
-    
+
     # Information about the tool that was called
     tool: ToolInfo
-    
+
     # The formatted response message for LLM
     message: ToolCallMessageDict
-    
+
     # The result from the tool function (None if it failed)
     result: Optional[Any] = None
-    
+
     # The exception if the call failed (None if successful)
     error: Optional[Exception] = None
-    
+
     @property
     def success(self) -> bool:
         """Returns True if the tool call was successful."""
@@ -118,38 +122,40 @@ class ToolCallResult:
 
 class ToolRegistry:
     def __init__(
-        self, 
+        self,
         strict: bool = False,
-        response_serializer: Callable[[Any], str] = None,
-        exception_serializer: Callable[[Exception], str] = None,
-        catch_exceptions: bool = True
+        response_serializer: Callable[[Any], str] = json.dumps,
+        exception_serializer: Callable[[Exception], str] = default_exception_serializer,
+        catch_exceptions: bool = True,
     ):
         self._registry: dict[str, ToolInfo] = {}
         self._default_strict = strict
         self._response_serializer = response_serializer or json.dumps
-        self._exception_serializer = exception_serializer or default_exception_serializer
+        self._exception_serializer = (
+            exception_serializer or default_exception_serializer
+        )
         self._catch_exceptions = catch_exceptions
-        
+
     @property
     def response_serializer(self) -> Callable[[Any], str]:
         return self._response_serializer
-        
+
     @response_serializer.setter
     def response_serializer(self, serializer: Callable[[Any], str]):
         self._response_serializer = serializer
-        
+
     @property
     def exception_serializer(self) -> Callable[[Exception], str]:
         return self._exception_serializer
-        
+
     @exception_serializer.setter
     def exception_serializer(self, serializer: Callable[[Exception], str]):
         self._exception_serializer = serializer
-        
+
     @property
     def catch_exceptions(self) -> bool:
         return self._catch_exceptions
-        
+
     @catch_exceptions.setter
     def catch_exceptions(self, value: bool):
         self._catch_exceptions = value
@@ -167,27 +173,27 @@ class ToolRegistry:
         return item in self._registry
 
     def import_registry(
-        self, 
-        registry: 'ToolRegistry', 
+        self,
+        registry: "ToolRegistry",
         namespace: Optional[str] = None,
-        overwrite: bool = False
+        overwrite: bool = False,
     ):
         """Import tools from another registry.
-        
+
         Args:
             registry: The registry to import tools from
             namespace: Optional prefix to add to imported tool names (e.g., "math")
             overwrite: Whether to overwrite existing tools with the same name
-        
+
         Example:
             # Create registries
             math_registry = ToolRegistry()
             math_registry.register_tool(add)
             math_registry.register_tool(subtract)
-            
+
             main_registry = ToolRegistry()
             main_registry.import_registry(math_registry, namespace="math")
-            
+
             # Call imported tools
             result = main_registry.call("math.add", a=1, b=2)  # Returns 3
         """
@@ -196,10 +202,12 @@ class ToolRegistry:
                 name = f"{namespace}.{tool_info.name}"
             else:
                 name = tool_info.name
-                
+
             if name in self and not overwrite:
-                raise ValueError(f"Tool with name '{name}' already exists. Use overwrite=True to replace it.")
-            
+                raise ValueError(
+                    f"Tool with name '{name}' already exists. Use overwrite=True to replace it."
+                )
+
             # Create a new ToolInfo with the updated name
             imported_tool = ToolInfo(
                 name=name,
@@ -212,7 +220,7 @@ class ToolRegistry:
                 response_serializer=tool_info.response_serializer,
                 exception_serializer=tool_info.exception_serializer,
             )
-            
+
             # Add to registry
             self._registry[name] = imported_tool
 
@@ -242,7 +250,7 @@ class ToolRegistry:
             py_type = type_hints.get(param_name, Any)
             schema_prop = python_type_to_json_schema(py_type, strict=strict)
             properties[param_name] = schema_prop
-            
+
             # In strict mode, add all parameters to required fields
             # In non-strict mode, only add if not optional and has no default
             if strict:
@@ -255,7 +263,7 @@ class ToolRegistry:
                     args = get_args(py_type)
                     if len(args) == 2 and NoneType in args:
                         is_optional = True
-                
+
                 # Only add to required if it has no default value and is not Optional
                 if param.default is inspect.Parameter.empty and not is_optional:
                     required_fields.append(param_name)
@@ -287,7 +295,7 @@ class ToolRegistry:
         sig = inspect.signature(func)
         type_hints = get_type_hints(func, include_extras=True)
         py_kwargs = {}
-        for param_name, param in sig.parameters.items():
+        for param_name in sig.parameters.keys():
             if param_name == "self" and inspect.ismethod(func):
                 continue
             py_type = type_hints.get(param_name, Any)
@@ -301,12 +309,9 @@ class ToolRegistry:
             raise exc
         serializer = tool_info.exception_serializer or self._exception_serializer
         return serializer(exc)
-        
+
     def _create_tool_response(
-        self, 
-        tool_call_id: str, 
-        name: str, 
-        content: str
+        self, tool_call_id: str, name: str, content: str
     ) -> ToolCallMessageDict:
         """Create a tool call response."""
         return {
@@ -315,14 +320,14 @@ class ToolRegistry:
             "name": name,
             "content": content,
         }
-        
-    def call(self, name: str, **arguments: any):
+
+    def call(self, name: str, **arguments: Any):
         tool_info = self[name]
         func = tool_info.function
         py_kwargs = self._build_arguments(func, arguments)
         return func(**py_kwargs)
 
-    async def acall(self, name: str, **arguments: any):
+    async def acall(self, name: str, **arguments: Any):
         tool_info = self[name]
         func = tool_info.function
         py_kwargs = self._build_arguments(func, arguments)
@@ -330,10 +335,10 @@ class ToolRegistry:
 
     def tool_call(self, tool_call: ToolCallDict) -> ToolCallResult:
         """Execute a synchronous tool call.
-        
+
         Args:
             tool_call: The tool call dictionary in OpenAI format
-            
+
         Returns:
             A ToolCallResult object containing the result or error, tool info, and formatted message
         """
@@ -341,36 +346,31 @@ class ToolRegistry:
         function_name = function["name"]
         tool = self[function_name]
         tool_call_id = tool_call["id"]
-        
+
         result = None
         error = None
-        
+
         try:
             arguments = json.loads(function["arguments"])
             result = self.call(function_name, **arguments)
-            
+
             # Use tool-specific serializer if available, otherwise use registry default
             serializer = tool.response_serializer or self._response_serializer
             content = serializer(result)
         except Exception as exc:
             error = exc
             content = self._handle_exception(exc, tool)
-            
+
         message = self._create_tool_response(tool_call_id, function_name, content)
-        
-        return ToolCallResult(
-            result=result,
-            error=error,
-            tool=tool,
-            message=message
-        )
+
+        return ToolCallResult(result=result, error=error, tool=tool, message=message)
 
     async def atool_call(self, tool_call: ToolCallDict) -> ToolCallResult:
         """Execute an asynchronous tool call.
-        
+
         Args:
             tool_call: The tool call dictionary in OpenAI format
-            
+
         Returns:
             A ToolCallResult object containing the result or error, tool info, and formatted message
         """
@@ -378,41 +378,36 @@ class ToolRegistry:
         function_name = function["name"]
         tool = self[function_name]
         tool_call_id = tool_call["id"]
-        
+
         result = None
         error = None
-        
+
         try:
             arguments = json.loads(function["arguments"])
             result = await self.acall(function_name, **arguments)
-            
+
             # Use tool-specific serializer if available, otherwise use registry default
             serializer = tool.response_serializer or self._response_serializer
             content = serializer(result)
         except Exception as exc:
             error = exc
             content = self._handle_exception(exc, tool)
-            
+
         message = self._create_tool_response(tool_call_id, function_name, content)
-        
-        return ToolCallResult(
-            result=result,
-            error=error,
-            tool=tool,
-            message=message
-        )
-        
-    async def smart_call(self, name: str, **arguments: any):
+
+        return ToolCallResult(result=result, error=error, tool=tool, message=message)
+
+    async def smart_call(self, name: str, **arguments: Any):
         """Call a tool regardless of whether it's sync or async.
-        
+
         This method automatically detects if the tool is synchronous or asynchronous
         and calls it appropriately. Synchronous tools are executed in a thread pool
         to prevent blocking the event loop.
-        
+
         Args:
             name: The name of the tool to call
             **arguments: The arguments to pass to the tool
-            
+
         Returns:
             The result of the tool execution
         """
@@ -422,74 +417,69 @@ class ToolRegistry:
         else:
             # Run synchronous function in thread pool to prevent blocking
             return await asyncio.to_thread(self.call, name, **arguments)
-    
+
     async def smart_tool_call(self, tool_call: ToolCallDict) -> ToolCallResult:
         """Handle tool calls for both sync and async tools automatically.
-        
+
         This method automatically detects if the tool is synchronous or asynchronous
         and processes the tool call appropriately. Synchronous tools are executed in
         a thread pool to prevent blocking the event loop.
-        
+
         Args:
             tool_call: The tool call dictionary in OpenAI format
-            
+
         Returns:
             A ToolCallResult object containing the result or error, tool info, and formatted message
         """
         function_name = tool_call["function"]["name"]
         tool = self[function_name]
         tool_call_id = tool_call["id"]
-        
+
         result = None
         error = None
-        
+
         try:
             arguments = json.loads(tool_call["function"]["arguments"])
-            
+
             if tool.is_async:
                 result = await self.acall(function_name, **arguments)
             else:
                 # Run synchronous function in thread pool
                 result = await asyncio.to_thread(self.call, function_name, **arguments)
-            
+
             # Use tool-specific serializer if available, otherwise use registry default
             serializer = tool.response_serializer or self._response_serializer
             content = serializer(result)
         except Exception as exc:
             error = exc
             content = self._handle_exception(exc, tool)
-        
-        message = self._create_tool_response(tool_call_id, function_name, content)
-        
-        return ToolCallResult(
-            result=result,
-            error=error,
-            tool=tool,
-            message=message
-        )
 
-    def definitions(self) -> list[dict[str, Any]]:
+        message = self._create_tool_response(tool_call_id, function_name, content)
+
+        return ToolCallResult(result=result, error=error, tool=tool, message=message)
+
+    def definitions(self) -> list[ToolDefinition]:
         return [tool_info.definition for tool_info in self._registry.values()]
 
     def tool(
         self,
         *,
-        name: str = None,
-        description: str = None,
-        title: str = None,
-        strict: Optional[bool] = None,
+        name: str | None = None,
+        description: str | None = None,
+        title: str | None = None,
+        strict: bool | None = None,
         response_serializer: Optional[Callable[[Any], str]] = None,
         exception_serializer: Optional[Callable[[Exception], str]] = None,
     ):
         def decorator(func: Callable):
             self.register_tool(
-                func, 
-                name=name, 
+                func,
+                name=name,
                 description=description,
                 title=title,
                 strict=strict,
                 response_serializer=response_serializer,
-                exception_serializer=exception_serializer
+                exception_serializer=exception_serializer,
             )
             return func
 
