@@ -1,22 +1,20 @@
 [project]
 name = "toolkitr"
-version = "0.3.2"
+version = "0.3.3"
 description = "Tool calling made easy"
 authors = [{ name = "Manolo Santos", email = "manolo.santos@gmail.com" }]
 requires-python = "~=3.11"
 readme = "README.md"
-license = {text = "MIT"}
+license = { text = "MIT" }
 classifiers = [
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
-    "Development Status :: 4 - Beta",
-    "Intended Audience :: Developers",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.11",
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Developers",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dependencies = [
-    "typing-extensions>=4.0.0",
-]
+dependencies = ["typing-extensions>=4.0.0"]
 
 [project.urls]
 "Homepage" = "https://github.com/undo76/toolkitr"
@@ -24,11 +22,7 @@ dependencies = [
 "Documentation" = "https://github.com/undo76/toolkitr#readme"
 
 [dependency-groups]
-test = [
-    "openai>=1.58.1,<2",
-    "pytest~=8.2",
-    "pytest-asyncio>=0.25.0,<0.26",
-]
+test = ["openai>=1.58.1,<2", "pytest~=8.2", "pytest-asyncio>=0.25.0,<0.26"]
 
 [tool.uv]
 default-groups = ["test"]
