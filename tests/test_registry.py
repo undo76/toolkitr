@@ -29,6 +29,27 @@ def test_register_tool():
     }
 
 
+def test_register_tool_with_parameter_name():
+    """Test registering a tool with a parameter name."""
+    registry = ToolRegistry()
+    registry.register_tool(
+        lambda name: name,
+        name="echo",
+        description="Echoes the input.",
+    )
+    assert len(registry) == 1
+    assert list(registry)[0].name == "echo"
+    assert list(registry)[0].description == "Echoes the input."
+    assert list(registry)[0].function("test") == "test"
+    assert list(registry)[0].is_async is False
+    assert list(registry)[0].parameters == {
+        "properties": {"name": {}},
+        "required": ["name"],
+        "type": "object",
+    }
+    registry.call("echo", name="Morty")
+
+
 def test_call_tool():
     """Test calling a tool."""
     registry = ToolRegistry()

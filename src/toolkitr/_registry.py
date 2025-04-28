@@ -321,13 +321,13 @@ class ToolRegistry:
             "content": content,
         }
 
-    def call(self, name: str, **arguments: Any):
+    def call(self, name: str, /, **arguments: Any):
         tool_info = self[name]
         func = tool_info.function
         py_kwargs = self._build_arguments(func, arguments)
         return func(**py_kwargs)
 
-    async def acall(self, name: str, **arguments: Any):
+    async def acall(self, name: str, /, **arguments: Any):
         tool_info = self[name]
         func = tool_info.function
         py_kwargs = self._build_arguments(func, arguments)
@@ -397,7 +397,7 @@ class ToolRegistry:
 
         return ToolCallResult(result=result, error=error, tool=tool, message=message)
 
-    async def smart_call(self, name: str, **arguments: Any):
+    async def smart_call(self, name: str, /, **arguments: Any):
         """Call a tool regardless of whether it's sync or async.
 
         This method automatically detects if the tool is synchronous or asynchronous
