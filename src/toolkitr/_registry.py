@@ -5,9 +5,11 @@ from dataclasses import dataclass
 from typing import (
     Any,
     Callable,
+    Iterable,
     Iterator,
     Literal,
     Optional,
+    Required,
     TypedDict,
     Union,
     get_args,
@@ -22,11 +24,10 @@ from toolkitr._serializer import default_exception_serializer
 class ToolFunctionDefinition(TypedDict, total=False):
     """A definition of a function tool."""
 
-    name: str
+    name: Required[str]
     description: str
-    parameters: dict[str, Any]
-    strict: bool
-    title: str | None  # Human-friendly name
+    parameters: dict[str, object]
+    strict: bool | None
 
 
 class ToolDefinition(TypedDict):
@@ -66,10 +67,6 @@ class ToolInfo:
             }
         )
 
-        # Add title to the definition if it exists (Not official in OpenAI API)
-        if self.title:
-            function_def["title"] = self.title
-
         return ToolDefinition(
             {
                 "type": "function",
@@ -89,13 +86,17 @@ class ToolCallDict(TypedDict):
     function: ToolCallFunctionDict
 
 
-class ToolCallMessageDict(TypedDict):
+class ContentPartTextDict(TypedDict, total=True):
+    text: Required[str]
+    type: Required[Literal["text"]]
+
+
+class ToolCallMessageDict(TypedDict, total=True):
     """Message returned from a tool call execution."""
 
-    role: Literal["tool"]
-    tool_call_id: str
-    name: str
-    content: str
+    role: Required[Literal["tool"]]
+    tool_call_id: Required[str]
+    content: Required[str | Iterable[ContentPartTextDict]]
 
 
 @dataclass
@@ -311,13 +312,12 @@ class ToolRegistry:
         return serializer(exc)
 
     def _create_tool_response(
-        self, tool_call_id: str, name: str, content: str
+        self, tool_call_id: str, content: str
     ) -> ToolCallMessageDict:
         """Create a tool call response."""
         return {
             "role": "tool",
             "tool_call_id": tool_call_id,
-            "name": name,
             "content": content,
         }
 
@@ -361,7 +361,7 @@ class ToolRegistry:
             error = exc
             content = self._handle_exception(exc, tool)
 
-        message = self._create_tool_response(tool_call_id, function_name, content)
+        message = self._create_tool_response(tool_call_id, content)
 
         return ToolCallResult(result=result, error=error, tool=tool, message=message)
 
@@ -393,7 +393,7 @@ class ToolRegistry:
             error = exc
             content = self._handle_exception(exc, tool)
 
-        message = self._create_tool_response(tool_call_id, function_name, content)
+        message = self._create_tool_response(tool_call_id, content)
 
         return ToolCallResult(result=result, error=error, tool=tool, message=message)
 
@@ -454,7 +454,7 @@ class ToolRegistry:
             error = exc
             content = self._handle_exception(exc, tool)
 
-        message = self._create_tool_response(tool_call_id, function_name, content)
+        message = self._create_tool_response(tool_call_id, content)
 
         return ToolCallResult(result=result, error=error, tool=tool, message=message)
 

@@ -1,12 +1,19 @@
 import asyncio
 import json
-from typing import Annotated, Literal, TypedDict, NamedTuple, Optional
-from enum import Enum
 from dataclasses import dataclass
+from enum import Enum
+from typing import Annotated, Literal, NamedTuple, Optional, TypedDict
 
 import pytest
 from openai import OpenAI
-from toolkitr._registry import ToolRegistry, ToolCallDict
+from openai.types.chat import (
+    ChatCompletionAssistantMessageParam,
+    ChatCompletionMessage,
+    ChatCompletionMessageParam,
+    ChatCompletionUserMessageParam,
+)
+
+from toolkitr._registry import ToolRegistry
 
 
 class Priority(Enum):
@@ -38,7 +45,10 @@ class Coordinates(NamedTuple):
 
 def get_weather(
     location: Annotated[str, "The location to get the weather for"],
-    units: Annotated[Optional[str], "The units to use for temperature (e.g., 'celsius', 'fahrenheit')"] = None
+    units: Annotated[
+        Optional[str],
+        "The units to use for temperature (e.g., 'celsius', 'fahrenheit')",
+    ] = None,
 ) -> str:
     """Get the weather for a location."""
     if units:
@@ -48,7 +58,10 @@ def get_weather(
 
 async def aget_weather(
     location: Annotated[str, "The location to get the weather for"],
-    units: Annotated[Optional[str], "The units to use for temperature (e.g., 'celsius', 'fahrenheit')"] = None
+    units: Annotated[
+        Optional[str],
+        "The units to use for temperature (e.g., 'celsius', 'fahrenheit')",
+    ] = None,
 ) -> str:
     """Get the weather for a location asynchronously."""
     if units:
@@ -106,26 +119,47 @@ def registry(request) -> ToolRegistry:
     return registry
 
 
-def test_openai(client: OpenAI) -> None:
+def _to_message(message: ChatCompletionMessage):
+    message_as_dict = ChatCompletionAssistantMessageParam(
+        role="assistant",
+        content=message.content,
+        tool_calls=[
+            {
+                "type": tool_call.type,
+                "function": {
+                    "name": tool_call.function.name,
+                    "arguments": tool_call.function.arguments,
+                },
+                "id": tool_call.id,
+            }
+            for tool_call in message.tool_calls or []
+        ],
+    )
+    return message_as_dict
+
+
+def test_openai_no_tools(client: OpenAI) -> None:
     """Test OpenAI's API."""
-    messages = [
+    messages: list = [
         {"role": "user", "content": "What is the capital of France?"},
     ]
-    response = client.chat.completions.create(messages=messages, model="gpt-4o-mini")
+    response = client.chat.completions.create(messages=messages, model="gpt-4.1-nano")
     answer = response.choices[0].message.content
+    assert answer
     assert "Paris" in answer
 
 
 def test_tool(client: OpenAI, registry: ToolRegistry) -> None:
     """Test call to a registered tool."""
-    messages = [
+    messages: list[ChatCompletionMessageParam] = [
         {"role": "user", "content": "What is the weather in London?"},
     ]
     registry.register_tool(get_weather)
     response = client.chat.completions.create(
-        messages=messages, model="gpt-4o-mini", tools=registry.definitions()
+        messages=messages, model="gpt-4.1-nano", tools=registry.definitions()
     )
     tool_calls = response.choices[0].message.tool_calls
+    assert tool_calls
     function_name = tool_calls[0].function.name
     assert function_name == "get_weather"
     args = json.loads(tool_calls[0].function.arguments)
@@ -136,14 +170,15 @@ def test_tool(client: OpenAI, registry: ToolRegistry) -> None:
 
 def test_multiple_tools(client: OpenAI, registry: ToolRegistry) -> None:
     """Test call to multiple registered tools."""
-    messages = [
+    messages: list[ChatCompletionMessageParam] = [
         {"role": "user", "content": "What is the weather in London and Paris?"},
     ]
 
     response = client.chat.completions.create(
-        messages=messages, model="gpt-4o-mini", tools=registry.definitions()
+        messages=messages, model="gpt-4.1-nano", tools=registry.definitions()
     )
     tool_calls = response.choices[0].message.tool_calls
+    assert tool_calls
     assert len(tool_calls) == 2
     function_name = tool_calls[0].function.name
     assert function_name == "get_weather"
@@ -161,33 +196,45 @@ def test_multiple_tools(client: OpenAI, registry: ToolRegistry) -> None:
 
 def test_sequential_tools(client: OpenAI, registry: ToolRegistry) -> None:
     """Test call to tools in sequence."""
-    messages = [
-        {
-            "role": "user",
-            "content": "Find the weather in London and Paris and then send an email to foo@example.com with the results.",
-        }
+    messages: list[ChatCompletionMessageParam] = [
+        ChatCompletionUserMessageParam(
+            {
+                "role": "user",
+                "content": "Find the weather in London and Paris and then send an email to foo@example.com with the results.",
+            }
+        )
     ]
 
     response = client.chat.completions.create(
-        messages=messages, model="gpt-4o-mini", tools=registry.definitions()
+        messages=messages,
+        model="gpt-4.1-nano",
+        tools=registry.definitions(),
     )
 
     message = response.choices[0].message
-    messages.append(message)
-
-    for tool_call in message.tool_calls:
-        tool_call_dict: ToolCallDict = tool_call.model_dump()
-        tool_result = registry.tool_call(tool_call_dict)
+    assert message
+    message_as_dict = _to_message(message)
+    messages.append(message_as_dict)
+    for tool_call in message_as_dict.get("tool_calls") or []:
+        tool_result = registry.tool_call(tool_call)
         messages.append(tool_result.message)  # Extract the message from ToolCallResult
-
     response = client.chat.completions.create(
-        messages=messages, model="gpt-4o-mini", tools=registry.definitions()
+        messages=messages, model="gpt-4.1-nano", tools=registry.definitions()
     )
 
-    tool_calls = response.choices[0].message.tool_calls
-    assert len(tool_calls) == 1
-    tool_call_dict: ToolCallDict = tool_calls[0].model_dump()
-    email_result = registry.tool_call(tool_call_dict)
+    message = response.choices[0].message
+    assert message
+    message_as_dict = _to_message(message)
+    messages.append(message_as_dict)
+
+    tool_result = None
+    for tool_call in message_as_dict.get("tool_calls", []):
+        tool_result = registry.tool_call(tool_call)
+        messages.append(tool_result.message)  # Extract the message from ToolCallResult
+    email_result = tool_result
+    assert email_result
+    assert email_result.message
+    assert type(email_result.message["content"]) is str
     assert "To: foo@example.com" in email_result.message["content"]
     assert "Paris" in email_result.message["content"]
     assert "London" in email_result.message["content"]
@@ -198,13 +245,15 @@ async def test_async_tool(client: OpenAI) -> None:
     """Test async call to a registered tool."""
     registry = ToolRegistry()
     registry.register_tool(aget_weather)
-    messages = [
+    messages: list[ChatCompletionMessageParam] = [
         {"role": "user", "content": "What is the weather in Tokyo?"},
     ]
     response = client.chat.completions.create(
-        messages=messages, model="gpt-4o-mini", tools=registry.definitions()
+        messages=messages, model="gpt-4.1-nano", tools=registry.definitions()
     )
     tool_calls = response.choices[0].message.tool_calls
+    assert tool_calls
+    assert len(tool_calls) >= 1
     function_name = tool_calls[0].function.name
     assert function_name == "aget_weather"
     args = json.loads(tool_calls[0].function.arguments)
@@ -218,26 +267,29 @@ async def test_async_multiple_tools(client: OpenAI) -> None:
     """Test async call to tools in parallel."""
     registry = ToolRegistry()
     registry.register_tool(aget_weather)
-    messages = [{"role": "user", "content": "What is the weather in Tokyo and Kyoto?"}]
+    messages: list[ChatCompletionMessageParam] = [
+        {"role": "user", "content": "What is the weather in Tokyo and Kyoto?"}
+    ]
     response = client.chat.completions.create(
-        messages=messages, model="gpt-4o-mini", tools=registry.definitions()
+        messages=messages, model="gpt-4.1-nano", tools=registry.definitions()
     )
-    messages.append(response.choices[0].message)
-    tool_calls = response.choices[0].message.tool_calls
-    assert len(tool_calls) == 2
-    # Get tool call results and extract the messages
+    message_as_dict = _to_message(response.choices[0].message)
+    assert message_as_dict
+    messages.append(message_as_dict)
+
     results = await asyncio.gather(
         *(
-            registry.atool_call(tool_call.model_dump())
-            for tool_call in tool_calls
+            registry.atool_call(tool_call)
+            for tool_call in message_as_dict.get("tool_calls", [])
         )
     )
     messages += [result.message for result in results]
     assert len(messages) == 4
     response = client.chat.completions.create(
-        messages=messages, model="gpt-4o-mini", tools=registry.definitions()
+        messages=messages, model="gpt-4.1-nano", tools=registry.definitions()
     )
     content = response.choices[0].message.content
+    assert content
     assert "Tokyo" in content
     assert "Kyoto" in content
     assert "sunny" in content
@@ -247,7 +299,7 @@ def test_complex_types(client: OpenAI, registry: ToolRegistry) -> None:
     """Test handling of complex Python types including tuples, literals, enums, dataclasses and TypedDict."""
     registry.register_tool(create_complex_task)
 
-    messages = [
+    messages: list[ChatCompletionMessageParam] = [
         {
             "role": "user",
             "content": "Create a high priority task for John (age 30) at coordinates (42.1, -71.1), "
@@ -256,10 +308,11 @@ def test_complex_types(client: OpenAI, registry: ToolRegistry) -> None:
     ]
 
     response = client.chat.completions.create(
-        messages=messages, model="gpt-4o-mini", tools=registry.definitions()
+        messages=messages, model="gpt-4.1-nano", tools=registry.definitions()
     )
 
     tool_calls = response.choices[0].message.tool_calls
+    assert tool_calls
     assert len(tool_calls) == 1
 
     function_name = tool_calls[0].function.name

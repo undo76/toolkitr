@@ -5,7 +5,7 @@ from typing import Any
 
 def default_serializer(obj: Any) -> str:
     """Smart serializer that handles various Python types appropriately.
-    
+
     - Complex data structures (lists, dicts) use JSON
     - Custom objects try to convert to dict or string representation
     - Handles dataclasses, enums, and other common types
@@ -39,21 +39,23 @@ def default_serializer(obj: Any) -> str:
             return str(o)
 
         return json.dumps(obj, default=json_encoder, ensure_ascii=False)
-    except:
+    except Exception:
         # Fallback to basic string representation if JSON fails
         return f'"{str(obj)}"'  # Quote the string to make valid JSON
 
 
 def default_exception_serializer(exc: Exception) -> str:
     """Default serializer for exceptions.
-    
+
     Returns a JSON object with the exception type and message.
     """
-    return json.dumps({
-        "error": {
-            # "type": type(exc).__name__,
-            "message": str(exc),
-            # Include traceback for debugging but without full paths
-            # "traceback": traceback.format_exc().splitlines()
+    return json.dumps(
+        {
+            "error": {
+                # "type": type(exc).__name__,
+                "message": str(exc),
+                # Include traceback for debugging but without full paths
+                # "traceback": traceback.format_exc().splitlines()
+            }
         }
-    })
+    )

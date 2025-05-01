@@ -14,7 +14,6 @@ classifiers = [
   "Topic :: Software Development :: Libraries :: Python Modules",
   "Topic :: Scientific/Engineering :: Artificial Intelligence",
 ]
-dependencies = ["typing-extensions>=4.0.0"]
 
 [project.urls]
 "Homepage" = "https://github.com/undo76/toolkitr"

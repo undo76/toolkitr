@@ -4,6 +4,7 @@ import json
 import pytest
 
 from toolkitr import ToolRegistry
+from toolkitr._registry import ToolCallDict
 
 
 def example_function(x: str) -> str:
@@ -45,10 +46,7 @@ async def test_smart_tool_call_sync(registry):
     tool_call = {
         "type": "function",
         "id": "call_123",
-        "function": {
-            "name": "example_function",
-            "arguments": '{"x": "Tool World"}'
-        }
+        "function": {"name": "example_function", "arguments": '{"x": "Tool World"}'},
     }
 
     result = await registry.smart_tool_call(tool_call)
@@ -56,14 +54,13 @@ async def test_smart_tool_call_sync(registry):
     # Check the message
     assert result.message["role"] == "tool"
     assert result.message["tool_call_id"] == "call_123"
-    assert result.message["name"] == "example_function"
     assert result.message["content"] == '"Hello, Tool World!"'
-    
+
     # Check the result
     assert result.result == "Hello, Tool World!"
     assert result.error is None
     assert result.success is True
-    
+
     # Check the tool
     assert result.tool.name == "example_function"
 
@@ -76,8 +73,8 @@ async def test_smart_tool_call_async(registry):
         "id": "call_456",
         "function": {
             "name": "async_example_function",
-            "arguments": '{"x": "Async Tool World"}'
-        }
+            "arguments": '{"x": "Async Tool World"}',
+        },
     }
 
     result = await registry.smart_tool_call(tool_call)
@@ -85,14 +82,13 @@ async def test_smart_tool_call_async(registry):
     # Check the message
     assert result.message["role"] == "tool"
     assert result.message["tool_call_id"] == "call_456"
-    assert result.message["name"] == "async_example_function"
     assert result.message["content"] == '"Async Hello, Async Tool World!"'
-    
+
     # Check the result
     assert result.result == "Async Hello, Async Tool World!"
     assert result.error is None
     assert result.success is True
-    
+
     # Check the tool
     assert result.tool.name == "async_example_function"
 
@@ -110,13 +106,10 @@ async def test_custom_serializer():
     registry = ToolRegistry(response_serializer=custom_serializer)
     registry.register_tool(example_function)
 
-    tool_call = {
+    tool_call: ToolCallDict = {
         "type": "function",
         "id": "call_789",
-        "function": {
-            "name": "example_function",
-            "arguments": '{"x": "Serialized"}'
-        }
+        "function": {"name": "example_function", "arguments": '{"x": "Serialized"}'},
     }
 
     result = await registry.smart_tool_call(tool_call)
@@ -140,31 +133,22 @@ async def test_per_tool_serializer():
 
     # Register two tools, one with custom serializer
     registry.register_tool(example_function)
-    registry.register_tool(
-        async_example_function,
-        response_serializer=tool_serializer
-    )
+    registry.register_tool(async_example_function, response_serializer=tool_serializer)
 
     # Test tool with registry-level serializer
-    tool_call1 = {
+    tool_call1: ToolCallDict = {
         "type": "function",
         "id": "call_reg",
-        "function": {
-            "name": "example_function",
-            "arguments": '{"x": "Default"}'
-        }
+        "function": {"name": "example_function", "arguments": '{"x": "Default"}'},
     }
     result1 = await registry.smart_tool_call(tool_call1)
     assert result1.message["content"] == '"REGISTRY: Hello, Default!"'
 
     # Test tool with tool-level serializer
-    tool_call2 = {
+    tool_call2: ToolCallDict = {
         "type": "function",
         "id": "call_tool",
-        "function": {
-            "name": "async_example_function",
-            "arguments": '{"x": "Custom"}'
-        }
+        "function": {"name": "async_example_function", "arguments": '{"x": "Custom"}'},
     }
     result2 = await registry.smart_tool_call(tool_call2)
     assert result2.message["content"] == '"TOOL: Async Hello, Custom!"'
@@ -182,13 +166,10 @@ async def test_exception_handling():
     registry.register_tool(failing_function)
 
     # Test with synchronous function
-    tool_call = {
+    tool_call: ToolCallDict = {
         "type": "function",
         "id": "call_fail",
-        "function": {
-            "name": "failing_function",
-            "arguments": '{}'
-        }
+        "function": {"name": "failing_function", "arguments": "{}"},
     }
 
     result = await registry.smart_tool_call(tool_call)
@@ -196,7 +177,6 @@ async def test_exception_handling():
     # Check the message
     assert result.message["role"] == "tool"
     assert result.message["tool_call_id"] == "call_fail"
-    assert result.message["name"] == "failing_function"
 
     # Check the result
     assert result.result is None
@@ -205,6 +185,7 @@ async def test_exception_handling():
     assert result.success is False
 
     # The content should be a JSON string with error details
+    assert type(result.message["content"]) is str
     error_data = json.loads(result.message["content"])
     assert "error" in error_data
     assert error_data["error"]["message"] == "This function failed intentionally"
@@ -215,12 +196,9 @@ async def test_custom_exception_serializer():
     """Test custom exception serializer."""
 
     def custom_exception_serializer(exc: Exception) -> str:
-        return json.dumps({
-            "custom_error": {
-                "name": type(exc).__name__,
-                "info": str(exc)
-            }
-        })
+        return json.dumps(
+            {"custom_error": {"name": type(exc).__name__, "info": str(exc)}}
+        )
 
     def failing_function():
         """This function always fails."""
@@ -229,13 +207,10 @@ async def test_custom_exception_serializer():
     registry = ToolRegistry(exception_serializer=custom_exception_serializer)
     registry.register_tool(failing_function)
 
-    tool_call = {
+    tool_call: ToolCallDict = {
         "type": "function",
         "id": "call_custom_error",
-        "function": {
-            "name": "failing_function",
-            "arguments": '{}'
-        }
+        "function": {"name": "failing_function", "arguments": "{}"},
     }
 
     result = await registry.smart_tool_call(tool_call)
@@ -243,10 +218,11 @@ async def test_custom_exception_serializer():
     # Check the error
     assert result.result is None
     assert isinstance(result.error, RuntimeError)
-    assert str(result.error) == "Custom error message" 
+    assert str(result.error) == "Custom error message"
     assert result.success is False
 
     # Verify custom format in the message
+    assert type(result.message["content"]) is str
     error_data = json.loads(result.message["content"])
     assert "custom_error" in error_data
     assert error_data["custom_error"]["name"] == "RuntimeError"
@@ -264,13 +240,10 @@ async def test_no_exception_catching():
     registry = ToolRegistry(catch_exceptions=False)
     registry.register_tool(failing_function)
 
-    tool_call = {
+    tool_call: ToolCallDict = {
         "type": "function",
         "id": "call_uncaught",
-        "function": {
-            "name": "failing_function",
-            "arguments": '{}'
-        }
+        "function": {"name": "failing_function", "arguments": "{}"},
     }
 
     # The exception should bubble up
@@ -283,27 +256,23 @@ async def test_return_raw_sync():
     """Test result with a synchronous function."""
     registry = ToolRegistry()
     registry.register_tool(example_function)
-    
-    tool_call = {
+
+    tool_call: ToolCallDict = {
         "type": "function",
         "id": "call_raw_sync",
-        "function": {
-            "name": "example_function",
-            "arguments": '{"x": "Raw Result"}'
-        }
+        "function": {"name": "example_function", "arguments": '{"x": "Raw Result"}'},
     }
-    
+
     result = await registry.smart_tool_call(tool_call)
-    
+
     # Test the result
     assert result.result == "Hello, Raw Result!"
     assert result.error is None
     assert result.success is True
-    
+
     # Test the message
     assert result.message["role"] == "tool"
     assert result.message["tool_call_id"] == "call_raw_sync"
-    assert result.message["name"] == "example_function"
     assert result.message["content"] == '"Hello, Raw Result!"'
 
 
@@ -312,63 +281,60 @@ async def test_return_raw_async():
     """Test result with an asynchronous function."""
     registry = ToolRegistry()
     registry.register_tool(async_example_function)
-    
-    tool_call = {
+
+    tool_call: ToolCallDict = {
         "type": "function",
         "id": "call_raw_async",
         "function": {
             "name": "async_example_function",
-            "arguments": '{"x": "Async Raw Result"}'
-        }
+            "arguments": '{"x": "Async Raw Result"}',
+        },
     }
-    
+
     result = await registry.smart_tool_call(tool_call)
-    
+
     # Test the result
     assert result.result == "Async Hello, Async Raw Result!"
     assert result.error is None
     assert result.success is True
-    
+
     # Test the message
     assert result.message["role"] == "tool"
     assert result.message["tool_call_id"] == "call_raw_async"
-    assert result.message["name"] == "async_example_function"
     assert result.message["content"] == '"Async Hello, Async Raw Result!"'
 
 
 @pytest.mark.asyncio
 async def test_return_raw_exception():
     """Test result with a function that raises an exception."""
+
     def failing_function():
         """This function always fails."""
         raise ValueError("Raw exception test")
-    
+
     registry = ToolRegistry()
     registry.register_tool(failing_function)
-    
-    tool_call = {
+
+    tool_call: ToolCallDict = {
         "type": "function",
         "id": "call_raw_exc",
-        "function": {
-            "name": "failing_function",
-            "arguments": '{}'
-        }
+        "function": {"name": "failing_function", "arguments": "{}"},
     }
-    
+
     result = await registry.smart_tool_call(tool_call)
-    
+
     # Test the result
     assert result.result is None
     assert isinstance(result.error, ValueError)
     assert str(result.error) == "Raw exception test"
     assert result.success is False
-    
+
     # Test the message
     assert result.message["role"] == "tool"
     assert result.message["tool_call_id"] == "call_raw_exc"
-    assert result.message["name"] == "failing_function"
-    
+
     # The content should be a JSON string with error details
+    assert type(result.message["content"]) is str
     error_data = json.loads(result.message["content"])
     assert "error" in error_data
     assert error_data["error"]["message"] == "Raw exception test"
@@ -378,20 +344,13 @@ async def test_return_raw_exception():
 async def test_tool_with_title():
     """Test registering a tool with a title."""
     registry = ToolRegistry()
-    
+
     # Register a tool with a title
-    registry.register_tool(
-        example_function,
-        title="Example Function with Title"
-    )
-    
+    registry.register_tool(example_function, title="Example Function with Title")
+
     # Check the tool definition
     definitions = registry.definitions()
     assert len(definitions) == 1
-    
-    # Verify the title is in the definition
-    tool_def = definitions[0]
-    assert tool_def["function"]["title"] == "Example Function with Title"
 
 
 @pytest.mark.asyncio
