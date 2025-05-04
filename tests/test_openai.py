@@ -140,7 +140,7 @@ def _to_message(message: ChatCompletionMessage):
 
 def test_openai_no_tools(client: OpenAI) -> None:
     """Test OpenAI's API."""
-    messages: list = [
+    messages: list[ChatCompletionMessageParam] = [
         {"role": "user", "content": "What is the capital of France?"},
     ]
     response = client.chat.completions.create(messages=messages, model="gpt-4.1-nano")

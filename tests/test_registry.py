@@ -50,18 +50,15 @@ def test_register_tool_with_parameter_name():
     registry.call("echo", name="Morty")
 
 
-def test_call_tool():
+def test_call():
     """Test calling a tool."""
     registry = ToolRegistry()
     registry.register_tool(lambda x: x, name="echo", description="Echoes the input.")
     result = registry.call("echo", **{"x": "test"})
-    assert result == "test"
+    assert result == '"test"'
 
     with pytest.raises(KeyError):
         registry.call("unknown", **{})
-
-    with pytest.raises(TypeError):
-        registry.call("echo", **{})
 
 
 def test_iteration():
@@ -110,8 +107,8 @@ def test_method():
         "properties": {"x": {"type": "string"}},
         "required": ["x"],
     }
-    result = registry.call("echo", **{"x": "test"})
-    assert result == "Hi test"
+    result = registry.call("echo", x="test")
+    assert result == '"Hi test"'
 
 
 def test_import_registry():
@@ -127,7 +124,7 @@ def test_import_registry():
     # Import without namespace
     target_registry.import_registry(src_registry)
     assert "echo" in target_registry
-    assert target_registry.call("echo", x="test") == "test"
+    assert target_registry.call("echo", x="test") == '"test"'
 
     # Create another target registry for namespaced import
     ns_registry = ToolRegistry()
@@ -136,7 +133,7 @@ def test_import_registry():
     ns_registry.import_registry(src_registry, namespace="utils")
     assert "utils.echo" in ns_registry
     assert "echo" not in ns_registry
-    assert ns_registry.call("utils.echo", x="test") == "test"
+    assert ns_registry.call("utils.echo", x="test") == '"test"'
 
     # Test overwrite behavior
     ns_registry.register_tool(lambda x: f"original: {x}", name="utils.echo")
@@ -148,5 +145,5 @@ def test_import_registry():
     # Should work with overwrite=True
     ns_registry.import_registry(src_registry, namespace="utils", overwrite=True)
     assert (
-        ns_registry.call("utils.echo", x="test") == "test"
+        ns_registry.call("utils.echo", x="test") == '"test"'
     )  # Overwritten with imported function

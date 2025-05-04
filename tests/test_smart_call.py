@@ -30,14 +30,14 @@ def registry():
 async def test_smart_call_sync(registry):
     """Test smart_call with a synchronous function."""
     result = await registry.smart_call("example_function", x="World")
-    assert result == "Hello, World!"
+    assert result == '"Hello, World!"'
 
 
 @pytest.mark.asyncio
 async def test_smart_call_async(registry):
     """Test smart_call with an asynchronous function."""
     result = await registry.smart_call("async_example_function", x="Async World")
-    assert result == "Async Hello, Async World!"
+    assert result == '"Async Hello, Async World!"'
 
 
 @pytest.mark.asyncio
@@ -375,7 +375,7 @@ async def test_class_with_smart_call():
     registry.register_tool(instance.async_method, name="async_test")
 
     sync_result = await registry.smart_call("sync_test", message="Hello")
-    assert sync_result == "Test: Hello"
+    assert sync_result == '"Test: Hello"'
 
     async_result = await registry.smart_call("async_test", message="World")
-    assert async_result == "Async Test: World"
+    assert async_result == '"Async Test: World"'

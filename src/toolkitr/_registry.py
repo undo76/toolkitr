@@ -4,6 +4,7 @@ import json
 from dataclasses import dataclass
 from typing import (
     Any,
+    Awaitable,
     Callable,
     Iterable,
     Iterator,
@@ -58,21 +59,36 @@ class ToolInfo:
 
     @property
     def definition(self) -> ToolDefinition:
-        function_def = ToolFunctionDefinition(
-            {
-                "name": self.name,
-                "description": self.description,
-                "parameters": self.parameters,
-                "strict": self.strict,
-            }
-        )
-
         return ToolDefinition(
             {
                 "type": "function",
-                "function": function_def,
+                "function": ToolFunctionDefinition(
+                    {
+                        "name": self.name,
+                        "description": self.description,
+                        "parameters": self.parameters,
+                        "strict": self.strict,
+                    }
+                ),
             }
         )
+
+    def __call__(self, *args, **kwargs):
+        if self.is_async:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                return self.function(*args, **kwargs)
+            else:
+                return asyncio.run(self.function(*args, **kwargs))
+        else:
+            return self.function(*args, **kwargs)
+
+    def __acall__(self, *args: Any, **kwargs: Any) -> Awaitable[Any]:
+        """Call the t ol function with the provided arguments asynchronously."""
+        if self.is_async:
+            return self.function(*args, **kwargs)
+        else:
+            return asyncio.to_thread(self.function, *args, **kwargs)
 
 
 class ToolCallFunctionDict(TypedDict):
@@ -321,17 +337,55 @@ class ToolRegistry:
             "content": content,
         }
 
-    def call(self, name: str, /, **arguments: Any):
+    def _call(self, name: str, /, **arguments: Any):
         tool_info = self[name]
-        func = tool_info.function
-        py_kwargs = self._build_arguments(func, arguments)
-        return func(**py_kwargs)
+        py_kwargs = self._build_arguments(tool_info.function, arguments)
+        result = None
+        error = None
+        try:
+            result = tool_info.__call__(**py_kwargs)
+            serializer = tool_info.response_serializer or self._response_serializer
+            content = serializer(result)
+        except Exception as exc:
+            error = exc
+            content = self._handle_exception(exc, tool_info)
+        return content, result, error
 
-    async def acall(self, name: str, /, **arguments: Any):
+    async def _acall(self, name: str, /, **arguments: Any):
         tool_info = self[name]
-        func = tool_info.function
-        py_kwargs = self._build_arguments(func, arguments)
-        return await func(**py_kwargs)
+        py_kwargs = self._build_arguments(tool_info.function, arguments)
+        result = None
+        error = None
+        try:
+            result = await tool_info.__acall__(**py_kwargs)
+            serializer = tool_info.response_serializer or self._response_serializer
+            content = serializer(result)
+        except Exception as exc:
+            error = exc
+            content = self._handle_exception(exc, tool_info)
+        return content, result, error
+
+    def call(self, name: str, /, **arguments: Any):
+        return self._call(name, **arguments)[0]
+
+    async def acall(self, name: str, /, **arguments: Any) -> Any:
+        return (await self._acall(name, **arguments))[0]
+
+    async def smart_call(self, name: str, /, **arguments: Any):
+        """Call a tool regardless of whether it's sync or async.
+
+        This method automatically detects if the tool is synchronous or asynchronous
+        and calls it appropriately. Synchronous tools are executed in a thread pool
+        to prevent blocking the event loop.
+
+        Args:
+            name: The name of the tool to call
+            **arguments: The arguments to pass to the tool
+
+        Returns:
+            The result of the tool exelution
+        """
+        return await self.acall(name, **arguments)
 
     def tool_call(self, tool_call: ToolCallDict) -> ToolCallResult:
         """Execute a synchronous tool call.
@@ -346,21 +400,9 @@ class ToolRegistry:
         function_name = function["name"]
         tool = self[function_name]
         tool_call_id = tool_call["id"]
+        arguments = json.loads(tool_call["function"]["arguments"])
 
-        result = None
-        error = None
-
-        try:
-            arguments = json.loads(function["arguments"])
-            result = self.call(function_name, **arguments)
-
-            # Use tool-specific serializer if available, otherwise use registry default
-            serializer = tool.response_serializer or self._response_serializer
-            content = serializer(result)
-        except Exception as exc:
-            error = exc
-            content = self._handle_exception(exc, tool)
-
+        content, result, error = self._call(function_name, **arguments)
         message = self._create_tool_response(tool_call_id, content)
 
         return ToolCallResult(result=result, error=error, tool=tool, message=message)
@@ -378,45 +420,12 @@ class ToolRegistry:
         function_name = function["name"]
         tool = self[function_name]
         tool_call_id = tool_call["id"]
+        arguments = json.loads(tool_call["function"]["arguments"])
 
-        result = None
-        error = None
-
-        try:
-            arguments = json.loads(function["arguments"])
-            result = await self.acall(function_name, **arguments)
-
-            # Use tool-specific serializer if available, otherwise use registry default
-            serializer = tool.response_serializer or self._response_serializer
-            content = serializer(result)
-        except Exception as exc:
-            error = exc
-            content = self._handle_exception(exc, tool)
-
+        content, result, error = await self._acall(function_name, **arguments)
         message = self._create_tool_response(tool_call_id, content)
 
         return ToolCallResult(result=result, error=error, tool=tool, message=message)
-
-    async def smart_call(self, name: str, /, **arguments: Any):
-        """Call a tool regardless of whether it's sync or async.
-
-        This method automatically detects if the tool is synchronous or asynchronous
-        and calls it appropriately. Synchronous tools are executed in a thread pool
-        to prevent blocking the event loop.
-
-        Args:
-            name: The name of the tool to call
-            **arguments: The arguments to pass to the tool
-
-        Returns:
-            The result of the tool execution
-        """
-        tool_info = self[name]
-        if tool_info.is_async:
-            return await self.acall(name, **arguments)
-        else:
-            # Run synchronous function in thread pool to prevent blocking
-            return await asyncio.to_thread(self.call, name, **arguments)
 
     async def smart_tool_call(self, tool_call: ToolCallDict) -> ToolCallResult:
         """Handle tool calls for both sync and async tools automatically.
@@ -434,25 +443,15 @@ class ToolRegistry:
         function_name = tool_call["function"]["name"]
         tool = self[function_name]
         tool_call_id = tool_call["id"]
+        arguments = json.loads(tool_call["function"]["arguments"])
 
-        result = None
-        error = None
-
-        try:
-            arguments = json.loads(tool_call["function"]["arguments"])
-
-            if tool.is_async:
-                result = await self.acall(function_name, **arguments)
-            else:
-                # Run synchronous function in thread pool
-                result = await asyncio.to_thread(self.call, function_name, **arguments)
-
-            # Use tool-specific serializer if available, otherwise use registry default
-            serializer = tool.response_serializer or self._response_serializer
-            content = serializer(result)
-        except Exception as exc:
-            error = exc
-            content = self._handle_exception(exc, tool)
+        if tool.is_async:
+            content, result, error = await self._acall(function_name, **arguments)
+        else:
+            # Run synchronous function in thread pool
+            content, result, error = await asyncio.to_thread(
+                self._call, function_name, **arguments
+            )
 
         message = self._create_tool_response(tool_call_id, content)
 
